@@ -1,17 +1,5 @@
-# Python
 __pycache__/
 *.py[cod]
-*.egg-info/
-dist/
-build/
-
-# IDE
 .vscode/
-.idea/
-
-# Data
 data/
-
-# OS
 .DS_Store
-Thumbs.db
