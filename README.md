@@ -32,8 +32,9 @@ Piper_Code/
 ├── examples/                    # 示例程序
 │   └── grasp_ball_demo.py       # 视觉抓取小球演示
 ├── tests/                       # 测试代码
+│   └── run_piper.py              # 测试 Piper 机械臂
+│   
 ├── data/                        # 数据存储目录
-├── run_piper.py                 # 基础运行脚本
 ├── requirements.txt             # 依赖列表
 └── README.md                    # 项目文档
 ```
@@ -56,7 +57,7 @@ pip install PyYAML>=6.0
 ### 1. 基础运动控制
 
 ```bash
-python run_piper.py
+python tests/run_piper.py
 ```
 
 机械臂将平滑移动到目标位置 `[0.3, 0.2, 0.15]`。
