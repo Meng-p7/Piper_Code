@@ -30,7 +30,7 @@ class GraspBallDemo:
         self.ball_body_name = "target_ball"
         
         self.fk = ForwardKinematics(self.model, self.ik_body_name)
-        self.ik = InverseKinematics(self.model, self.ik_body_name, joint_names=arm_joint_names)
+        self.ik = InverseKinematics(self.model, self.ik_body_name, joint_names=arm_joint_names, gripper_bodies=["link7", "link8"])
         self.planner = TrajectoryPlanner(max_velocity=0.5, max_acceleration=0.3)
         
         self.camera = Camera(self.model, self.data, camera_name="camera", width=640, height=480)
@@ -58,11 +58,7 @@ class GraspBallDemo:
         
         self.observe_qpos = np.array([0, 0.8, -1.0, 0, 0, 0])
         
-        self.ball_radius = 0.015
-        
-        # 测量得到的准确偏移 (gripper_center - link6)
-        self.gripper_offset_x = 0.1345
-        self.gripper_offset_z = 0.0118
+        self.ball_radius = 0.02
         
         print("GraspBallDemo initialized")
     
@@ -119,13 +115,13 @@ class GraspBallDemo:
         
         self.wait_for_settle(viewer)
     
-    def move_to_position(self, target_pos, viewer, gripper_ctrl=None, num_steps=100):
+    def move_to_gripper_position(self, target_pos, viewer, gripper_ctrl=None, num_steps=100):
         if gripper_ctrl is None:
             gripper_ctrl = self.gripper_open_ctrl
         
         q_current = self.data.qpos[self.arm_joint_ids].copy()
         q_full = self.data.qpos.copy()
-        q_target, success = self.ik.solve_position(target_pos, q_init=q_current, q_full=q_full)
+        q_target, success = self.ik.solve_gripper_position(target_pos, q_init=q_current, q_full=q_full)
         
         if not success:
             print(f"  警告：IK 求解可能不精确")
@@ -152,9 +148,10 @@ class GraspBallDemo:
     def grasp_object(self, viewer, num_steps=100):
         print("  闭合夹爪...")
         q_current = self.data.qpos[self.arm_joint_ids].copy()
+        close_target = self.ball_radius - 0.001
         
         for i in range(num_steps):
-            gripper_ctrl = self.gripper_open_ctrl * (1 - i / num_steps)
+            gripper_ctrl = self.gripper_open_ctrl - (self.gripper_open_ctrl - close_target) * (i / num_steps)
             self.set_ctrl(q_current, gripper_ctrl)
             for _ in range(3):
                 mujoco.mj_step(self.model, self.data)
@@ -172,13 +169,13 @@ class GraspBallDemo:
     def lift_object(self, viewer, lift_height=0.10, num_steps=100):
         print(f"  提升 {lift_height}m...")
         
-        ee_pos = self.data.xpos[self.ik_body_id].copy()
-        lift_pos = ee_pos.copy()
+        gripper_pos = self.get_gripper_center()
+        lift_pos = gripper_pos.copy()
         lift_pos[2] += lift_height
         
         q_current = self.data.qpos[self.arm_joint_ids].copy()
         q_full = self.data.qpos.copy()
-        q_lift, success = self.ik.solve_position(lift_pos, q_init=q_current, q_full=q_full)
+        q_lift, success = self.ik.solve_gripper_position(lift_pos, q_init=q_current, q_full=q_full)
         
         if not success:
             print("  警告：提升位姿 IK 求解可能不精确")
@@ -222,14 +219,16 @@ class GraspBallDemo:
             print(f"  小球真实位置: {ball_pos}")
             
             print("\n步骤 3: 移动到小球正上方...")
-            approach_pos = np.array([0.19, 0, 0.3])
-            self.move_to_position(approach_pos, viewer, self.gripper_open_ctrl)
+            approach_pos = ball_pos.copy()
+            approach_pos[2] += 0.15
+            self.move_to_gripper_position(approach_pos, viewer, self.gripper_open_ctrl)
             print(f"  夹爪中心: {self.get_gripper_center()}")
             
             print("\n步骤 4: 下降到抓取高度...")
-            grasp_pos = np.array([0.19, 0, 0.08])
+            grasp_pos = ball_pos.copy()
+            grasp_pos[2] += self.ball_radius
             print(f"  目标抓取位置: {grasp_pos}")
-            self.move_to_position(grasp_pos, viewer, self.gripper_open_ctrl)
+            self.move_to_gripper_position(grasp_pos, viewer, self.gripper_open_ctrl)
             print(f"  link6 实际高度: {self.data.xpos[self.ik_body_id][2]:.4f}")
             print(f"  夹爪中心: {self.get_gripper_center()}")
             
@@ -242,8 +241,8 @@ class GraspBallDemo:
             print(f"  提升后小球位置: {self.get_ball_position()}")
             
             print("\n步骤 7: 移动到放置位置...")
-            place_pos = np.array([0.3, -0.15, 0.25])
-            self.move_to_position(place_pos, viewer, self.gripper_close_ctrl)
+            place_pos = np.array([0.25, -0.15, 0.15])
+            self.move_to_gripper_position(place_pos, viewer, self.gripper_close_ctrl)
             
             print("\n步骤 8: 释放物体...")
             self.release_object(viewer)

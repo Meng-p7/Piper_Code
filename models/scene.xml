@@ -25,9 +25,9 @@
     <camera name="camera" pos="0.6 0 0.5" quat="0.236 0 -0.972 0" fovy="60"/>
     <camera name="top_view" pos="0 0 1.5" quat="1 0 0 0" fovy="60"/>
 
-    <body name="target_ball" pos="0.35 0 0.10">
+    <body name="target_ball" pos="0.35 0 0.02">
       <freejoint name="ball_joint"/>
-      <geom name="ball_geom" size="0.015" material="ball_red" condim="3" friction="0.5 0.05 0.01" solref="0.01 1" solimp="0.9 0.95 0.001"/>
+      <geom name="ball_geom" size="0.02" material="ball_red" condim="3" friction="1.0 0.05 0.01" solref="0.01 1" solimp="0.9 0.95 0.001"/>
     </body>
   </worldbody>
 </mujoco>

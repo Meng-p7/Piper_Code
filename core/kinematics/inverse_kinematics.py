@@ -4,10 +4,14 @@ import mujoco
 
 
 class InverseKinematics:
-    def __init__(self, model, ee_body_name="link6", joint_names=None):
+    def __init__(self, model, ee_body_name="link6", joint_names=None, gripper_bodies=None):
         self.model = model
         self.data = mujoco.MjData(model)
         self.ee_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, ee_body_name)
+        self.gripper_ids = []
+        if gripper_bodies:
+            for name in gripper_bodies:
+                self.gripper_ids.append(mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, name))
         
         if joint_names is None:
             joint_names = [f"joint{i}" for i in range(1, 7)]
@@ -108,6 +112,32 @@ class InverseKinematics:
         success = result.fun < 1e-3
         return result.x, success
     
+    def solve_gripper_position(self, target_pos, q_init=None, q_full=None):
+        if not self.gripper_ids:
+            return self.solve_position(target_pos, q_init, q_full)
+        if q_init is None:
+            q_init = np.zeros(self.num_joints)
+        if q_full is not None:
+            self.data.qpos[:] = q_full.copy()
+            self._ensure_valid_quaternions()
+        def cost_function(q):
+            self.data.qpos[self.joint_ids] = q
+            mujoco.mj_forward(self.model, self.data)
+            gripper_center = np.zeros(3)
+            for gid in self.gripper_ids:
+                gripper_center += self.data.xpos[gid]
+            gripper_center /= len(self.gripper_ids)
+            return np.sum((gripper_center - target_pos) ** 2)
+        result = minimize(
+            cost_function,
+            q_init,
+            method="L-BFGS-B",
+            bounds=self.joint_limits,
+            options={"maxiter": 2000, "ftol": 1e-12}
+        )
+        success = result.fun < 1e-6
+        return result.x, success
+
     def _ensure_valid_quaternions(self):
         for jid in self.joint_ids:
             if self.model.jnt_type[jid] == mujoco.mjtJoint.mjJNT_FREE:
