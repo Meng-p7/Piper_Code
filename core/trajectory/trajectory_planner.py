@@ -68,7 +68,7 @@ class TrajectoryPlanner:
         Returns:
             trajectory: 轨迹数组 [num_steps, num_joints]
         """
-        t = np.linspace(0, 1, num_steps)
+        t = np.linspace(0, 1, num_steps).reshape(-1, 1)
         t2 = t ** 2
         t3 = t ** 3
         t4 = t ** 4

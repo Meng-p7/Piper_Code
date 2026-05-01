@@ -10,271 +10,250 @@ import os
 import numpy as np
 import mujoco
 import mujoco.viewer
-import cv2
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.kinematics import ForwardKinematics, InverseKinematics
 from core.trajectory import TrajectoryPlanner
-from core.controller import SimulationController
 from core.vision import Camera, ObjectDetector
-from core.calibration import HandEyeCalibration
-from core.data_collection import DataRecorder
 
 
 class GraspBallDemo:
-    """视觉抓取小球演示类"""
-    
     def __init__(self, model_path="models/scene.xml"):
-        """
-        初始化演示环境
-        
-        Args:
-            model_path: MuJoCo 场景模型路径
-        """
         self.model_path = model_path
         self.model = mujoco.MjModel.from_xml_path(model_path)
         self.data = mujoco.MjData(self.model)
         
-        self.ee_body_name = "link7"
+        arm_joint_names = [f"joint{i}" for i in range(1, 7)]
+        
+        self.ik_body_name = "link6"
         self.ball_body_name = "target_ball"
         
-        self.fk = ForwardKinematics(self.model, self.ee_body_name)
-        self.ik = InverseKinematics(self.model, self.ee_body_name)
+        self.fk = ForwardKinematics(self.model, self.ik_body_name)
+        self.ik = InverseKinematics(self.model, self.ik_body_name, joint_names=arm_joint_names)
         self.planner = TrajectoryPlanner(max_velocity=0.5, max_acceleration=0.3)
-        
-        self.controller = SimulationController(
-            self.model, 
-            self.data,
-            joint_names=[f"joint{i}" for i in range(1, 8)],
-            gripper_joint_names=["gripper_left", "gripper_right"]
-        )
         
         self.camera = Camera(self.model, self.data, camera_name="camera", width=640, height=480)
         self.detector = ObjectDetector()
         
-        self.calibration = HandEyeCalibration()
-        self.recorder = DataRecorder(save_dir="./data")
-        
         self.ball_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, self.ball_body_name)
-        self.ee_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, self.ee_body_name)
+        self.ik_body_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, self.ik_body_name)
+        self.link7_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, "link7")
+        self.link8_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, "link8")
         
-        self.gripper_open_pos = 0.04
-        self.gripper_close_pos = 0.0
+        self.arm_joint_ids = []
+        self.arm_actuator_ids = []
+        for name in arm_joint_names:
+            jid = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, name)
+            self.arm_joint_ids.append(jid)
+            aid = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_ACTUATOR, name)
+            self.arm_actuator_ids.append(aid)
         
-        self.home_qpos = np.array([0, -0.3, 0.5, -0.2, 0, 0, 0])
-        self.grasp_qpos = None
+        self.gripper_actuator_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_ACTUATOR, "gripper")
+        
+        self.gripper_open_ctrl = 0.035
+        self.gripper_close_ctrl = 0.0
+        
+        self.home_qpos = np.array([0, 1.57, -1.3485, 0, 0, 0])
+        
+        self.observe_qpos = np.array([0, 0.8, -1.0, 0, 0, 0])
+        
+        self.ball_radius = 0.015
+        
+        # 测量得到的准确偏移 (gripper_center - link6)
+        self.gripper_offset_x = 0.1345
+        self.gripper_offset_z = 0.0118
         
         print("GraspBallDemo initialized")
     
+    def get_gripper_center(self):
+        return (self.data.xpos[self.link7_id] + self.data.xpos[self.link8_id]) / 2.0
+    
     def get_ball_position(self):
-        """获取小球的真实世界坐标"""
-        ball_pos = self.data.xpos[self.ball_id].copy()
-        return ball_pos
+        return self.data.xpos[self.ball_id].copy()
     
     def detect_ball_from_camera(self):
-        """
-        从相机图像中检测小球位置
-        
-        Returns:
-            ball_world_pos: 小球的世界坐标，未检测到返回 None
-        """
         image = self.camera.get_image()
-        
         center, radius = self.detector.detect_ball_position(image, color_name="red")
         
         if center is None:
-            print("未检测到红色小球")
+            print("  未检测到红色小球，使用真实位置")
             return None
         
-        print(f"检测到小球，像素坐标: {center}, 半径: {radius}")
+        print(f"  检测到小球，像素坐标: {center}, 半径: {radius}")
         
         depth = self.camera.get_depth()
-        u, v = center
+        u, v = int(center[0]), int(center[1])
         
         if 0 <= u < depth.shape[1] and 0 <= v < depth.shape[0]:
             d = depth[v, u]
             if d > 0:
                 ball_pos = self.camera.pixel_to_world(u, v, d)
-                print(f"小球世界坐标: {ball_pos}")
+                print(f"  小球世界坐标: {ball_pos}")
                 return ball_pos
         
         return self.get_ball_position()
     
-    def move_to_home(self, viewer, speed=0.02):
-        """
-        移动到初始位姿
-        
-        Args:
-            viewer: MuJoCo viewer
-            speed: 移动速度
-        """
-        print("移动到初始位姿...")
-        
-        num_steps = 100
-        q_current = self.data.qpos[:7].copy()
-        trajectory = self.planner.quintic_interpolation(q_current, self.home_qpos, num_steps)
-        
-        for q_target in trajectory:
-            self.data.ctrl[:7] = q_target
-            self.data.ctrl[7:9] = self.gripper_open_pos
-            mujoco.mj_step(self.model, self.data)
-            viewer.sync()
-        
-        print("初始位姿到达")
+    def set_ctrl(self, q_arm, gripper_ctrl=None):
+        for i, aid in enumerate(self.arm_actuator_ids):
+            self.data.ctrl[aid] = q_arm[i]
+        if gripper_ctrl is not None:
+            self.data.ctrl[self.gripper_actuator_id] = gripper_ctrl
     
-    def move_to_position(self, target_pos, viewer, approach_height=0.15, speed=0.02):
-        """
-        移动到目标位置（带接近轨迹）
-        
-        Args:
-            target_pos: 目标位置 [x, y, z]
-            viewer: MuJoCo viewer
-            approach_height: 接近高度
-            speed: 移动速度
-        """
-        print(f"移动到目标位置: {target_pos}")
-        
-        approach_pos = target_pos.copy()
-        approach_pos[2] += approach_height
-        
-        q_current = self.data.qpos[:7].copy()
-        
-        _, success1 = self.ik.solve_position(approach_pos, q_init=q_current)
-        if not success1:
-            print("警告：接近位姿 IK 求解失败，使用近似解")
-        
-        q_approach = self.data.qpos[:7].copy()
-        
-        num_steps = 100
-        trajectory1 = self.planner.quintic_interpolation(q_current, q_approach, num_steps)
-        
-        for q_target in trajectory1:
-            self.data.ctrl[:7] = q_target
-            self.data.ctrl[7:9] = self.gripper_open_pos
+    def wait_for_settle(self, viewer, steps=20):
+        for _ in range(steps):
             mujoco.mj_step(self.model, self.data)
             viewer.sync()
-        
-        _, success2 = self.ik.solve_position(target_pos, q_init=q_approach)
-        if not success2:
-            print("警告：目标位姿 IK 求解失败，使用近似解")
-        
-        q_grasp = self.data.qpos[:7].copy()
-        trajectory2 = self.planner.quintic_interpolation(q_approach, q_grasp, num_steps)
-        
-        for q_target in trajectory2:
-            self.data.ctrl[:7] = q_target
-            self.data.ctrl[7:9] = self.gripper_open_pos
-            mujoco.mj_step(self.model, self.data)
-            viewer.sync()
-        
-        print("目标位置到达")
-        return q_grasp
     
-    def grasp_object(self, viewer):
-        """
-        执行抓取动作
+    def move_to_qpos(self, q_target, viewer, gripper_ctrl=None, num_steps=100):
+        if gripper_ctrl is None:
+            gripper_ctrl = self.gripper_open_ctrl
         
-        Args:
-            viewer: MuJoCo viewer
-        """
-        print("执行抓取...")
+        q_current = self.data.qpos[self.arm_joint_ids].copy()
+        trajectory = self.planner.quintic_interpolation(q_current, q_target, num_steps)
         
-        num_steps = 50
+        for q in trajectory:
+            self.set_ctrl(q, gripper_ctrl)
+            mujoco.mj_step(self.model, self.data)
+            viewer.sync()
+        
+        self.wait_for_settle(viewer)
+    
+    def move_to_position(self, target_pos, viewer, gripper_ctrl=None, num_steps=100):
+        if gripper_ctrl is None:
+            gripper_ctrl = self.gripper_open_ctrl
+        
+        q_current = self.data.qpos[self.arm_joint_ids].copy()
+        q_full = self.data.qpos.copy()
+        q_target, success = self.ik.solve_position(target_pos, q_init=q_current, q_full=q_full)
+        
+        if not success:
+            print(f"  警告：IK 求解可能不精确")
+        
+        trajectory = self.planner.quintic_interpolation(q_current, q_target, num_steps)
+        for q in trajectory:
+            self.set_ctrl(q, gripper_ctrl)
+            mujoco.mj_step(self.model, self.data)
+            viewer.sync()
+        
+        self.wait_for_settle(viewer)
+        return q_target
+    
+    def move_to_home(self, viewer):
+        print("  移动到初始位姿（抬头）...")
+        self.move_to_qpos(self.home_qpos, viewer, self.gripper_open_ctrl)
+        print(f"  末端位置: {self.get_gripper_center()}")
+    
+    def move_to_observe(self, viewer):
+        print("  移动到低头观察位姿...")
+        self.move_to_qpos(self.observe_qpos, viewer, self.gripper_open_ctrl)
+        print(f"  末端位置: {self.get_gripper_center()}")
+    
+    def grasp_object(self, viewer, num_steps=100):
+        print("  闭合夹爪...")
+        q_current = self.data.qpos[self.arm_joint_ids].copy()
+        
         for i in range(num_steps):
-            gripper_pos = self.gripper_open_pos * (1 - i / num_steps)
-            self.data.ctrl[7:9] = gripper_pos
-            mujoco.mj_step(self.model, self.data)
+            gripper_ctrl = self.gripper_open_ctrl * (1 - i / num_steps)
+            self.set_ctrl(q_current, gripper_ctrl)
+            for _ in range(3):
+                mujoco.mj_step(self.model, self.data)
             viewer.sync()
         
-        print("抓取完成")
+        self.wait_for_settle(viewer, 30)
+        
+        gripper_center = self.get_gripper_center()
+        ball_pos = self.get_ball_position()
+        dist = np.linalg.norm(gripper_center - ball_pos)
+        print(f"  夹爪中心: {gripper_center}")
+        print(f"  小球位置: {ball_pos}")
+        print(f"  距离: {dist:.4f}")
     
-    def lift_object(self, viewer, lift_height=0.1):
-        """
-        提升物体
+    def lift_object(self, viewer, lift_height=0.10, num_steps=100):
+        print(f"  提升 {lift_height}m...")
         
-        Args:
-            viewer: MuJoCo viewer
-            lift_height: 提升高度
-        """
-        print(f"提升物体 {lift_height}m...")
-        
-        ee_pos, ee_rot = self.controller.get_ee_pose()
+        ee_pos = self.data.xpos[self.ik_body_id].copy()
         lift_pos = ee_pos.copy()
         lift_pos[2] += lift_height
         
-        q_current = self.data.qpos[:7].copy()
-        q_lift, success = self.ik.solve_position(lift_pos, q_init=q_current)
+        q_current = self.data.qpos[self.arm_joint_ids].copy()
+        q_full = self.data.qpos.copy()
+        q_lift, success = self.ik.solve_position(lift_pos, q_init=q_current, q_full=q_full)
         
         if not success:
-            print("警告：提升位姿 IK 求解失败")
+            print("  警告：提升位姿 IK 求解可能不精确")
         
-        num_steps = 100
         trajectory = self.planner.quintic_interpolation(q_current, q_lift, num_steps)
-        
-        for q_target in trajectory:
-            self.data.ctrl[:7] = q_target
-            self.data.ctrl[7:9] = self.gripper_close_pos
+        for q in trajectory:
+            self.set_ctrl(q, self.gripper_close_ctrl)
             mujoco.mj_step(self.model, self.data)
             viewer.sync()
         
-        print("提升完成")
+        self.wait_for_settle(viewer)
+    
+    def release_object(self, viewer, num_steps=100):
+        print("  打开夹爪...")
+        q_current = self.data.qpos[self.arm_joint_ids].copy()
+        
+        for i in range(num_steps):
+            gripper_ctrl = self.gripper_close_ctrl + self.gripper_open_ctrl * (i / num_steps)
+            self.set_ctrl(q_current, gripper_ctrl)
+            for _ in range(3):
+                mujoco.mj_step(self.model, self.data)
+            viewer.sync()
+        
+        self.wait_for_settle(viewer, 30)
     
     def run_demo(self):
-        """运行完整的抓取演示"""
         print("=" * 50)
-        print("Piper 机械臂视觉抓取演示")
+        print("Piper 机械臂抓取演示")
         print("=" * 50)
         
         with mujoco.viewer.launch_passive(self.model, self.data) as viewer:
             
-            self.controller.connect()
-            
+            print("\n步骤 1: 移动到初始位姿...")
             self.move_to_home(viewer)
             
-            print("\n步骤 1: 视觉检测小球...")
-            ball_pos = self.detect_ball_from_camera()
+            print("\n步骤 2: 低头观察位姿...")
+            self.move_to_observe(viewer)
             
-            if ball_pos is None:
-                print("未检测到小球，使用默认位置")
-                ball_pos = self.get_ball_position()
+            # 直接获取真实小球位置，不依赖视觉
+            ball_pos = self.get_ball_position()
+            print(f"  小球真实位置: {ball_pos}")
             
-            print(f"小球位置: {ball_pos}")
+            print("\n步骤 3: 移动到小球正上方...")
+            approach_pos = np.array([0.19, 0, 0.3])
+            self.move_to_position(approach_pos, viewer, self.gripper_open_ctrl)
+            print(f"  夹爪中心: {self.get_gripper_center()}")
             
-            print("\n步骤 2: 移动到小球上方...")
-            self.move_to_position(ball_pos, viewer, approach_height=0.15)
+            print("\n步骤 4: 下降到抓取高度...")
+            grasp_pos = np.array([0.19, 0, 0.08])
+            print(f"  目标抓取位置: {grasp_pos}")
+            self.move_to_position(grasp_pos, viewer, self.gripper_open_ctrl)
+            print(f"  link6 实际高度: {self.data.xpos[self.ik_body_id][2]:.4f}")
+            print(f"  夹爪中心: {self.get_gripper_center()}")
             
-            print("\n步骤 3: 下降到抓取位置...")
-            grasp_pos = ball_pos.copy()
-            grasp_pos[2] = 0.03
-            self.move_to_position(grasp_pos, viewer, approach_height=0.01)
-            
-            print("\n步骤 4: 执行抓取...")
+            print("\n步骤 5: 执行抓取...")
             self.grasp_object(viewer)
             
-            print("\n步骤 5: 提升物体...")
-            self.lift_object(viewer, lift_height=0.15)
+            print("\n步骤 6: 提升物体...")
+            self.lift_object(viewer, lift_height=0.10)
+            print(f"  提升后夹爪中心: {self.get_gripper_center()}")
+            print(f"  提升后小球位置: {self.get_ball_position()}")
             
-            print("\n步骤 6: 移动到放置位置...")
-            place_pos = np.array([0.3, -0.2, 0.03])
-            self.move_to_position(place_pos, viewer, approach_height=0.15)
+            print("\n步骤 7: 移动到放置位置...")
+            place_pos = np.array([0.3, -0.15, 0.25])
+            self.move_to_position(place_pos, viewer, self.gripper_close_ctrl)
             
-            print("\n步骤 7: 释放物体...")
-            num_steps = 50
-            for i in range(num_steps):
-                gripper_pos = self.gripper_close_pos + (self.gripper_open_pos) * (i / num_steps)
-                self.data.ctrl[7:9] = gripper_pos
-                mujoco.mj_step(self.model, self.data)
-                viewer.sync()
+            print("\n步骤 8: 释放物体...")
+            self.release_object(viewer)
             
-            print("\n步骤 8: 返回初始位姿...")
+            print("\n步骤 9: 返回初始位姿...")
             self.move_to_home(viewer)
             
             print("\n" + "=" * 50)
             print("演示完成！")
             print("=" * 50)
-            
-            self.controller.disconnect()
             
             print("\n提示: 按 ESC 或关闭 viewer 窗口退出")
             while viewer.is_running():
@@ -283,7 +262,6 @@ class GraspBallDemo:
 
 
 def main():
-    """主函数"""
     model_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "models", "scene.xml")
     
     if not os.path.exists(model_path):
