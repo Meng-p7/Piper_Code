@@ -1,0 +1,34 @@
+# Piper 机械臂仿真配置
+
+simulation:
+  timestep: 0.002
+  gravity: [0, 0, -9.81]
+  viewer: true
+
+robot:
+  name: "piper"
+  dof: 6
+  gripper_dof: 1
+  ee_name: "link7"
+  max_velocity: 0.5
+  max_acceleration: 0.3
+
+controller:
+  type: "position"
+  kp: 100.0
+  kd: 10.0
+  interpolation_speed: 0.02
+
+vision:
+  camera_name: "camera"
+  image_width: 640
+  image_height: 480
+  detection_threshold: 0.5
+
+calibration:
+  method: "hand_eye"
+  num_samples: 20
+
+data_collection:
+  save_dir: "./data"
+  frequency: 50

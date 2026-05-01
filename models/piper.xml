@@ -1,0 +1,145 @@
+<mujoco model="piper">
+  <compiler angle="radian" meshdir="meshes" autolimits="true"/>
+  
+  <option timestep="0.002" gravity="0 0 -9.81"/>
+  
+  <default>
+    <default class="piper">
+      <joint damping="0.1" frictionloss="0.01" armature="0.01"/>
+      <position kp="100" kv="10" forcerange="-50 50"/>
+      <default class="visual">
+        <geom type="mesh" contype="0" conaffinity="0" group="2"/>
+      </default>
+      <default class="collision">
+        <geom type="mesh" group="3"/>
+      </default>
+    </default>
+  </default>
+
+  <asset>
+    <texture name="table" type="2d" file="table.png" width="512" height="512"/>
+    <material name="table" texture="table" specular="0.1" shininess="0.1"/>
+    <material name="metal" rgba="0.5 0.5 0.5 1" specular="0.5" shininess="0.5"/>
+    <material name="white" rgba="0.9 0.9 0.9 1"/>
+    <material name="red" rgba="0.9 0.2 0.2 1"/>
+    <material name="blue" rgba="0.2 0.2 0.9 1"/>
+    <material name="green" rgba="0.2 0.9 0.2 1"/>
+    <material name="ball_red" rgba="0.9 0.1 0.1 1" specular="0.3" shininess="0.8"/>
+    <material name="ball_blue" rgba="0.1 0.1 0.9 1" specular="0.3" shininess="0.8"/>
+    <material name="ball_green" rgba="0.1 0.9 0.1 1" specular="0.3" shininess="0.8"/>
+  </asset>
+
+  <worldbody>
+    <light name="light1" pos="0 0 2" dir="0 0 -1"/>
+    <light name="light2" pos="1 1 1.5" dir="-1 -1 -1.5"/>
+    
+    <geom name="floor" pos="0 0 0" size="2 2 0.1" type="plane" material="table" condim="3"/>
+    
+    <body name="table" pos="0.5 0 0">
+      <geom name="table_top" pos="0 0 0" size="0.6 0.4 0.02" type="box" material="table" condim="3"/>
+      <geom name="table_leg1" pos="-0.5 -0.35 -0.4" size="0.02 0.02 0.4" type="cylinder" material="metal"/>
+      <geom name="table_leg2" pos="0.5 -0.35 -0.4" size="0.02 0.02 0.4" type="cylinder" material="metal"/>
+      <geom name="table_leg3" pos="-0.5 0.35 -0.4" size="0.02 0.02 0.4" type="cylinder" material="metal"/>
+      <geom name="table_leg4" pos="0.5 0.35 -0.4" size="0.02 0.02 0.4" type="cylinder" material="metal"/>
+    </body>
+
+    <body name="piper_base" pos="0 0 0">
+      <geom name="base" pos="0 0 0.02" size="0.06 0.06 0.02" type="box" material="metal" condim="3"/>
+      
+      <body name="link1" pos="0 0 0.04">
+        <joint name="joint1" pos="0 0 0" axis="0 0 1" range="-3.14 3.14" class="piper"/>
+        <geom name="link1_visual" pos="0 0 0.05" size="0.04 0.04 0.05" type="cylinder" material="white" class="visual"/>
+        <geom name="link1_collision" pos="0 0 0.05" size="0.04 0.04 0.05" type="cylinder" class="collision"/>
+        
+        <body name="link2" pos="0 0 0.1">
+          <joint name="joint2" pos="0 0 0" axis="0 1 0" range="-1.57 1.57" class="piper"/>
+          <geom name="link2_visual" pos="0.12 0 0" size="0.12 0.035 0.035" type="box" material="white" class="visual"/>
+          <geom name="link2_collision" pos="0.12 0 0" size="0.12 0.035 0.035" type="box" class="collision"/>
+          
+          <body name="link3" pos="0.24 0 0">
+            <joint name="joint3" pos="0 0 0" axis="0 1 0" range="-1.57 1.57" class="piper"/>
+            <geom name="link3_visual" pos="0.1 0 0" size="0.1 0.03 0.03" type="box" material="white" class="visual"/>
+            <geom name="link3_collision" pos="0.1 0 0" size="0.1 0.03 0.03" type="box" class="collision"/>
+            
+            <body name="link4" pos="0.2 0 0">
+              <joint name="joint4" pos="0 0 0" axis="0 1 0" range="-1.57 1.57" class="piper"/>
+              <geom name="link4_visual" pos="0.06 0 0" size="0.06 0.025 0.025" type="box" material="white" class="visual"/>
+              <geom name="link4_collision" pos="0.06 0 0" size="0.06 0.025 0.025" type="box" class="collision"/>
+              
+              <body name="link5" pos="0.12 0 0">
+                <joint name="joint5" pos="0 0 0" axis="0 0 1" range="-3.14 3.14" class="piper"/>
+                <geom name="link5_visual" pos="0 0 0" size="0.03 0.03 0.03" type="sphere" material="white" class="visual"/>
+                <geom name="link5_collision" pos="0 0 0" size="0.03 0.03 0.03" type="sphere" class="collision"/>
+                
+                <body name="link6" pos="0 0 0.06">
+                  <joint name="joint6" pos="0 0 0" axis="0 1 0" range="-1.57 1.57" class="piper"/>
+                  <geom name="link6_visual" pos="0 0 0" size="0.025 0.025 0.025" type="sphere" material="white" class="visual"/>
+                  <geom name="link6_collision" pos="0 0 0" size="0.025 0.025 0.025" type="sphere" class="collision"/>
+                  
+                  <body name="link7" pos="0 0 0.05">
+                    <joint name="joint7" pos="0 0 0" axis="0 0 1" range="-3.14 3.14" class="piper"/>
+                    <geom name="link7_visual" pos="0 0 0" size="0.02 0.02 0.02" type="sphere" material="white" class="visual"/>
+                    <geom name="link7_collision" pos="0 0 0" size="0.02 0.02 0.02" type="sphere" class="collision"/>
+                    
+                    <body name="gripper_base" pos="0 0 0.03">
+                      <geom name="gripper_base_visual" pos="0 0 0" size="0.03 0.02 0.015" type="box" material="metal" class="visual"/>
+                      <geom name="gripper_base_collision" pos="0 0 0" size="0.03 0.02 0.015" type="box" class="collision"/>
+                      
+                      <body name="gripper_left" pos="0 0.015 0">
+                        <joint name="gripper_left" pos="0 0 0" axis="0 1 0" range="0 0.04" class="piper"/>
+                        <geom name="gripper_left_visual" pos="0 0.01 0" size="0.01 0.01 0.03" type="box" material="metal" class="visual"/>
+                        <geom name="gripper_left_collision" pos="0 0.01 0" size="0.01 0.01 0.03" type="box" condim="3" friction="1 0.5 0.01" class="collision"/>
+                      </body>
+                      
+                      <body name="gripper_right" pos="0 -0.015 0">
+                        <joint name="gripper_right" pos="0 0 0" axis="0 -1 0" range="0 0.04" class="piper"/>
+                        <geom name="gripper_right_visual" pos="0 -0.01 0" size="0.01 0.01 0.03" type="box" material="metal" class="visual"/>
+                        <geom name="gripper_right_collision" pos="0 -0.01 0" size="0.01 0.01 0.03" type="box" condim="3" friction="1 0.5 0.01" class="collision"/>
+                      </body>
+                    </body>
+                  </body>
+                </body>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+    </body>
+
+    <camera name="camera" pos="0.8 0 0.8" quat="0.653 0.271 0.271 0.653" fovy="60"/>
+    <camera name="top_view" pos="0 0 1.5" quat="1 0 0 0" fovy="60"/>
+  </worldbody>
+
+  <actuator>
+    <position name="joint1_act" joint="joint1" kp="100" kv="10" forcerange="-50 50"/>
+    <position name="joint2_act" joint="joint2" kp="100" kv="10" forcerange="-50 50"/>
+    <position name="joint3_act" joint="joint3" kp="100" kv="10" forcerange="-50 50"/>
+    <position name="joint4_act" joint="joint4" kp="100" kv="10" forcerange="-50 50"/>
+    <position name="joint5_act" joint="joint5" kp="100" kv="10" forcerange="-50 50"/>
+    <position name="joint6_act" joint="joint6" kp="100" kv="10" forcerange="-50 50"/>
+    <position name="joint7_act" joint="joint7" kp="100" kv="10" forcerange="-50 50"/>
+    <position name="gripper_left_act" joint="gripper_left" kp="50" kv="5" forcerange="-20 20"/>
+    <position name="gripper_right_act" joint="gripper_right" kp="50" kv="5" forcerange="-20 20"/>
+  </actuator>
+
+  <sensor>
+    <jointpos name="joint1_pos" joint="joint1"/>
+    <jointpos name="joint2_pos" joint="joint2"/>
+    <jointpos name="joint3_pos" joint="joint3"/>
+    <jointpos name="joint4_pos" joint="joint4"/>
+    <jointpos name="joint5_pos" joint="joint5"/>
+    <jointpos name="joint6_pos" joint="joint6"/>
+    <jointpos name="joint7_pos" joint="joint7"/>
+    <jointvel name="joint1_vel" joint="joint1"/>
+    <jointvel name="joint2_vel" joint="joint2"/>
+    <jointvel name="joint3_vel" joint="joint3"/>
+    <jointvel name="joint4_vel" joint="joint4"/>
+    <jointvel name="joint5_vel" joint="joint5"/>
+    <jointvel name="joint6_vel" joint="joint6"/>
+    <jointvel name="joint7_vel" joint="joint7"/>
+  </sensor>
+
+  <keyframe>
+    <key name="home" qpos="0 0 0 0 0 0 0 0 0" ctrl="0 0 0 0 0 0 0 0 0"/>
+  </keyframe>
+</mujoco>
