@@ -10,6 +10,9 @@ import numpy as np
 import mujoco
 import mujoco.viewer
 
+# 👇 添加这两行
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from core.kinematics import ForwardKinematics, InverseKinematics
 from core.trajectory import TrajectoryPlanner
 from core.controller import SimulationController
@@ -17,7 +20,7 @@ from core.controller import SimulationController
 MODEL_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "models", "scene.xml")
 
 TARGET_XYZ = np.array([0.3, 0.2, 0.15])
-SPEED = 0.02
+STEPS_PER_RAD = 400  # 每弧度步数，越大速度越慢
 
 model = mujoco.MjModel.from_xml_path(MODEL_PATH)
 data = mujoco.MjData(model)
@@ -41,7 +44,9 @@ with mujoco.viewer.launch_passive(model, data) as viewer:
     controller.connect()
     
     q_current = controller.get_joint_positions()
-    num_steps = 200
+    max_joint_diff = np.max(np.abs(q_target - q_current))
+    num_steps = max(200, int(max_joint_diff * STEPS_PER_RAD))
+    print(f"  最大关节变化: {max_joint_diff:.3f} rad → {num_steps} 步")
     trajectory = planner.quintic_interpolation(q_current, q_target, num_steps)
     
     try:

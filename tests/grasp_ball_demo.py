@@ -2,7 +2,7 @@
 Piper 机械臂视觉抓取仿真例程
 
 功能：机械臂通过视觉识别红色小球，并移动到目标位置完成抓取
-运行方式：python examples/grasp_ball_demo.py
+运行方式：python tests/grasp_ball_demo.py
 """
 
 import sys

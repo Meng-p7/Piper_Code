@@ -42,10 +42,9 @@ Piper_Code/
 │   └── data_collection/             # 数据采集模块
 │       └── data_recorder.py         # 数据记录与回放
 ├── utils/                           # 工具函数（预留）
-├── examples/                        # 示例程序
+├── tests/                           # 测试与示例代码
+│   ├── run_piper.py                 # 基础运动测试
 │   └── grasp_ball_demo.py           # 视觉抓取小球演示
-├── tests/                           # 测试代码
-│   └── run_piper.py                 # 基础运动测试
 ├── data/                            # 数据存储目录
 ├── requirements.txt                 # 依赖列表
 └── README.md
@@ -194,7 +193,7 @@ python tests/run_piper.py
 运行完整的抓取演示，观看机械臂自动识别并抓取小球的完整流程：
 
 ```bash
-python examples/grasp_ball_demo.py
+python tests/grasp_ball_demo.py
 ```
 
 演示流程（13步）：
@@ -426,7 +425,7 @@ core/calibration/
 ├── calibration_data.py              # 标定数据管理（采集、存储、加载）
 └── calibration_utils.py             # 工具函数（误差计算、可视化、结果保存）
 
-examples/
+tests/
 ├── grasp_ball_demo.py               # 抓取演示
 ├── calibration_demo.py              # 手眼标定演示（自动采集+标定+验证）
 └── calibration_visualize.py         # 标定结果可视化
@@ -470,7 +469,7 @@ core/visual_servo/
 ├── jacobian_estimator.py            # 图像雅可比矩阵估计
 └── feature_tracker.py               # 特征点跟踪（光流/模板匹配）
 
-examples/
+tests/
 ├── grasp_ball_demo.py
 ├── calibration_demo.py
 ├── pbvs_demo.py                     # PBVS 抓取演示
