@@ -16,6 +16,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from core.kinematics import ForwardKinematics, InverseKinematics
 from core.trajectory import TrajectoryPlanner
 from core.vision import Camera, ObjectDetector
+from core.controller import SimulationController
+from utils import config
 
 
 class GraspBallDemo:
@@ -24,41 +26,40 @@ class GraspBallDemo:
         self.model = mujoco.MjModel.from_xml_path(model_path)
         self.data = mujoco.MjData(self.model)
         
-        arm_joint_names = [f"joint{i}" for i in range(1, 7)]
+        arm_joint_names = config.robot.joint_names
+        ik_ee_body_name = config.robot.ik_ee_body_name
+        gripper_bodies = config.robot.gripper_bodies
+        ball_body_name = config.grasp_demo.ball_body_name
         
-        self.ik_body_name = "link6"
-        self.ball_body_name = "target_ball"
+        # 运动学模块
+        self.fk = ForwardKinematics(self.model, ik_ee_body_name)
+        self.ik = InverseKinematics(self.model, ik_ee_body_name, joint_names=arm_joint_names, gripper_bodies=gripper_bodies)
+        self.planner = TrajectoryPlanner(max_velocity=config.robot.max_velocity, max_acceleration=config.robot.max_acceleration)
         
-        self.fk = ForwardKinematics(self.model, self.ik_body_name)
-        self.ik = InverseKinematics(self.model, self.ik_body_name, joint_names=arm_joint_names, gripper_bodies=["link7", "link8"])
-        self.planner = TrajectoryPlanner(max_velocity=0.5, max_acceleration=0.3)
-        
-        self.camera = Camera(self.model, self.data, camera_name="camera", width=640, height=480)
+        # 视觉模块
+        cam_width = config.vision.image_width
+        cam_height = config.vision.image_height
+        self.camera = Camera(self.model, self.data, camera_name=config.vision.camera_name, width=cam_width, height=cam_height)
         self.detector = ObjectDetector()
         
-        self.ball_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, self.ball_body_name)
-        self.ik_body_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, self.ik_body_name)
+        # Controller（统一运动控制接口）
+        self.controller = SimulationController(self.model, self.data)
+        self.controller.connect()
+        
+        # Body IDs（xpos 访问保留，不属于 Controller 职责）
+        self.ik_body_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, ik_ee_body_name)
         self.link7_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, "link7")
         self.link8_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, "link8")
+        self.ball_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, ball_body_name)
         
-        self.arm_joint_ids = []
-        self.arm_actuator_ids = []
-        for name in arm_joint_names:
-            jid = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, name)
-            self.arm_joint_ids.append(jid)
-            aid = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_ACTUATOR, name)
-            self.arm_actuator_ids.append(aid)
-        
-        self.gripper_actuator_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_ACTUATOR, "gripper")
-        
-        self.gripper_open_ctrl = 0.035
-        self.gripper_close_ctrl = 0.015
-        
-        self.home_qpos = np.array([0, 1.57, -1.3485, 0, 0, 0])
-        
-        self.observe_qpos = np.array([0, 0.8, -1.0, 0, 0, 0])
-        
-        self.ball_radius = 0.02
+        # 从配置读取参数
+        self.gripper_open_ctrl = config.robot.gripper.open_ctrl
+        self.gripper_close_ctrl = config.robot.gripper.close_ctrl
+        self.gripper_range = config.robot.gripper.range
+        self.home_qpos = np.array(config.robot.home_qpos)
+        self.observe_qpos = np.array(config.robot.observe_qpos)
+        self.ball_radius = config.grasp_demo.ball_radius
+        self.ball_body_name = ball_body_name
         
         print("GraspBallDemo initialized")
     
@@ -91,27 +92,26 @@ class GraspBallDemo:
         return self.get_ball_position()
     
     def set_ctrl(self, q_arm, gripper_ctrl=None):
-        for i, aid in enumerate(self.arm_actuator_ids):
-            self.data.ctrl[aid] = q_arm[i]
+        self.controller.send_joint_command(q_arm)
         if gripper_ctrl is not None:
-            self.data.ctrl[self.gripper_actuator_id] = gripper_ctrl
+            self.controller.send_gripper_command(gripper_ctrl / self.gripper_range)
     
     def wait_for_settle(self, viewer, steps=20):
         for _ in range(steps):
-            mujoco.mj_step(self.model, self.data)
-            viewer.sync()
+            self.controller.step()
+            self.controller.render(viewer)
     
     def move_to_qpos(self, q_target, viewer, gripper_ctrl=None, num_steps=100):
         if gripper_ctrl is None:
             gripper_ctrl = self.gripper_open_ctrl
         
-        q_current = self.data.qpos[self.arm_joint_ids].copy()
+        q_current = self.controller.get_joint_positions()
         trajectory = self.planner.quintic_interpolation(q_current, q_target, num_steps)
         
         for q in trajectory:
             self.set_ctrl(q, gripper_ctrl)
-            mujoco.mj_step(self.model, self.data)
-            viewer.sync()
+            self.controller.step()
+            self.controller.render(viewer)
         
         self.wait_for_settle(viewer)
     
@@ -119,7 +119,7 @@ class GraspBallDemo:
         if gripper_ctrl is None:
             gripper_ctrl = self.gripper_open_ctrl
         
-        q_current = self.data.qpos[self.arm_joint_ids].copy()
+        q_current = self.controller.get_joint_positions()
         q_full = self.data.qpos.copy()
         q_target, success = self.ik.solve_gripper_position(target_pos, q_init=q_current, q_full=q_full)
         
@@ -129,8 +129,8 @@ class GraspBallDemo:
         trajectory = self.planner.quintic_interpolation(q_current, q_target, num_steps)
         for q in trajectory:
             self.set_ctrl(q, gripper_ctrl)
-            mujoco.mj_step(self.model, self.data)
-            viewer.sync()
+            self.controller.step()
+            self.controller.render(viewer)
         
         self.wait_for_settle(viewer)
         
@@ -149,7 +149,7 @@ class GraspBallDemo:
         current = self.get_gripper_center()
         waypoints_z = np.linspace(current[2], target_z, num_waypoints)
         
-        q_current = self.data.qpos[self.arm_joint_ids].copy()
+        q_current = self.controller.get_joint_positions()
         for z in waypoints_z[1:]:
             wp = np.array([current[0], current[1], z])
             q_full = self.data.qpos.copy()
@@ -157,8 +157,8 @@ class GraspBallDemo:
             traj = self.planner.quintic_interpolation(q_current, q_target, steps_per_segment)
             for q in traj:
                 self.set_ctrl(q, gripper_ctrl)
-                mujoco.mj_step(self.model, self.data)
-                viewer.sync()
+                self.controller.step()
+                self.controller.render(viewer)
             q_current = q_target
         
         self.wait_for_settle(viewer)
@@ -175,7 +175,7 @@ class GraspBallDemo:
     
     def grasp_object(self, viewer, num_steps=200, settle_steps=300):
         print("  闭合夹爪...")
-        q_current = self.data.qpos[self.arm_joint_ids].copy()
+        q_current = self.controller.get_joint_positions()
         close_target = self.gripper_close_ctrl
         
         for i in range(num_steps):
@@ -183,8 +183,8 @@ class GraspBallDemo:
             gripper_ctrl = self.gripper_open_ctrl - (self.gripper_open_ctrl - close_target) * alpha
             self.set_ctrl(q_current, gripper_ctrl)
             for _ in range(4):
-                mujoco.mj_step(self.model, self.data)
-            viewer.sync()
+                self.controller.step()
+            self.controller.render(viewer)
         
         finger_gap = 2 * close_target
         penetration = 0.04 - finger_gap
@@ -193,8 +193,8 @@ class GraspBallDemo:
         for _ in range(settle_steps):
             self.set_ctrl(q_current, close_target)
             for _ in range(4):
-                mujoco.mj_step(self.model, self.data)
-            viewer.sync()
+                self.controller.step()
+            self.controller.render(viewer)
         
         gripper_center = self.get_gripper_center()
         ball_pos = self.get_ball_position()
@@ -210,7 +210,7 @@ class GraspBallDemo:
         lift_pos = gripper_pos.copy()
         lift_pos[2] += lift_height
         
-        q_current = self.data.qpos[self.arm_joint_ids].copy()
+        q_current = self.controller.get_joint_positions()
         q_full = self.data.qpos.copy()
         q_lift, success = self.ik.solve_gripper_position(lift_pos, q_init=q_current, q_full=q_full)
         
@@ -220,22 +220,22 @@ class GraspBallDemo:
         trajectory = self.planner.quintic_interpolation(q_current, q_lift, num_steps)
         for q in trajectory:
             self.set_ctrl(q, self.gripper_close_ctrl)
-            mujoco.mj_step(self.model, self.data)
-            viewer.sync()
+            self.controller.step()
+            self.controller.render(viewer)
         
         self.wait_for_settle(viewer)
     
     def release_object(self, viewer, num_steps=200):
         print("  缓慢打开夹爪...")
-        q_current = self.data.qpos[self.arm_joint_ids].copy()
+        q_current = self.controller.get_joint_positions()
         
         for i in range(num_steps):
             alpha = i / (num_steps - 1)
             gripper_ctrl = self.gripper_close_ctrl + (self.gripper_open_ctrl - self.gripper_close_ctrl) * alpha
             self.set_ctrl(q_current, gripper_ctrl)
             for _ in range(5):
-                mujoco.mj_step(self.model, self.data)
-            viewer.sync()
+                self.controller.step()
+            self.controller.render(viewer)
         
         self.wait_for_settle(viewer, 60)
     
@@ -243,6 +243,10 @@ class GraspBallDemo:
         print("=" * 50)
         print("PiperSim 抓取演示")
         print("=" * 50)
+        
+        approach_height = config.grasp_demo.approach_height
+        pre_grasp_height = config.grasp_demo.pre_grasp_height
+        place_x, place_y = config.grasp_demo.place_position
         
         with mujoco.viewer.launch_passive(self.model, self.data) as viewer:
             
@@ -259,14 +263,14 @@ class GraspBallDemo:
                 ball_pos = self.get_ball_position()
             print(f"  检测到小球位置: {ball_pos}")
             
-            print("\n步骤 3: 快速移动到小球上方 15cm...")
+            print(f"\n步骤 3: 快速移动到小球上方 {approach_height*100:.0f}cm...")
             approach_pos = ball_pos.copy()
-            approach_pos[2] += 0.15
+            approach_pos[2] += approach_height
             self.move_to_gripper_position(approach_pos, viewer, self.gripper_open_ctrl, num_steps=100)
             
-            print("\n步骤 4: 缓慢下降到预抓取位置（球上方 3cm）...")
+            print(f"\n步骤 4: 缓慢下降到预抓取位置（球上方 {pre_grasp_height*100:.0f}cm）...")
             pre_grasp_pos = ball_pos.copy()
-            pre_grasp_pos[2] += 0.03
+            pre_grasp_pos[2] += pre_grasp_height
             self.move_to_gripper_position(pre_grasp_pos, viewer, self.gripper_open_ctrl, num_steps=150)
             
             print("\n步骤 5: 极慢接近抓取位置...")
@@ -294,16 +298,16 @@ class GraspBallDemo:
             self.move_to_gripper_position(safe_pos, viewer, self.gripper_close_ctrl, num_steps=300)
             
             print("\n步骤 10: 极慢移动到放置位置上方...")
-            place_above = np.array([0.25, -0.15, safe_pos[2]])
+            place_above = np.array([place_x, place_y, safe_pos[2]])
             self.move_to_gripper_position(place_above, viewer, self.gripper_close_ctrl, num_steps=500)
             
             print("  横移后重新稳定握力...")
-            q_release = self.data.qpos[self.arm_joint_ids].copy()
+            q_release = self.controller.get_joint_positions()
             for _ in range(200):
                 self.set_ctrl(q_release, self.gripper_close_ctrl)
                 for _ in range(4):
-                    mujoco.mj_step(self.model, self.data)
-                viewer.sync()
+                    self.controller.step()
+                self.controller.render(viewer)
             
             print("\n步骤 11: 笛卡尔直线超慢下降...")
             self.move_gripper_straight_down(0.12, viewer, self.gripper_close_ctrl, num_waypoints=15, steps_per_segment=40)
@@ -320,8 +324,8 @@ class GraspBallDemo:
             
             print("\n提示: 按 ESC 或关闭 viewer 窗口退出")
             while viewer.is_running():
-                mujoco.mj_step(self.model, self.data)
-                viewer.sync()
+                self.controller.step()
+                self.controller.render(viewer)
 
 
 def main():

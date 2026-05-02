@@ -1,10 +1,13 @@
+from __future__ import annotations
+
 import numpy as np
+from scipy.spatial.transform import Rotation, Slerp
 
 
 class TrajectoryPlanner:
     """轨迹规划器：生成平滑的关节空间或笛卡尔空间轨迹"""
     
-    def __init__(self, max_velocity=0.5, max_acceleration=0.3):
+    def __init__(self, max_velocity: float = 0.5, max_acceleration: float = 0.3) -> None:
         """
         初始化轨迹规划器
         
@@ -15,7 +18,7 @@ class TrajectoryPlanner:
         self.max_velocity = max_velocity
         self.max_acceleration = max_acceleration
     
-    def linear_interpolation(self, q_start, q_end, num_steps):
+    def linear_interpolation(self, q_start: np.ndarray, q_end: np.ndarray, num_steps: int) -> np.ndarray:
         """
         线性插值
         
@@ -30,7 +33,8 @@ class TrajectoryPlanner:
         trajectory = np.linspace(q_start, q_end, num_steps)
         return trajectory
     
-    def cubic_interpolation(self, q_start, q_end, num_steps, v_start=0, v_end=0):
+    def cubic_interpolation(self, q_start: np.ndarray, q_end: np.ndarray, num_steps: int,
+                            v_start: float = 0, v_end: float = 0) -> np.ndarray:
         """
         三次多项式插值
         
@@ -56,7 +60,7 @@ class TrajectoryPlanner:
         trajectory = a0 + a1 * t + a2 * t2 + a3 * t3
         return trajectory
     
-    def quintic_interpolation(self, q_start, q_end, num_steps):
+    def quintic_interpolation(self, q_start: np.ndarray, q_end: np.ndarray, num_steps: int) -> np.ndarray:
         """
         五次多项式插值（位置和速度、加速度连续）
         
@@ -77,7 +81,9 @@ class TrajectoryPlanner:
         trajectory = q_start + (q_end - q_start) * (10 * t3 - 15 * t4 + 6 * t5)
         return trajectory
     
-    def trapezoidal_velocity(self, q_start, q_end, max_vel=None, max_acc=None, dt=0.002):
+    def trapezoidal_velocity(self, q_start: np.ndarray, q_end: np.ndarray,
+                             max_vel: float | None = None, max_acc: float | None = None,
+                             dt: float = 0.002) -> tuple[np.ndarray, np.ndarray]:
         """
         梯形速度规划
         
@@ -145,9 +151,11 @@ class TrajectoryPlanner:
         
         return trajectory, velocities
     
-    def cartesian_linear(self, pos_start, pos_end, num_steps, orientation_start=None, orientation_end=None):
+    def cartesian_linear(self, pos_start: np.ndarray, pos_end: np.ndarray, num_steps: int,
+                         orientation_start: np.ndarray | None = None,
+                         orientation_end: np.ndarray | None = None) -> tuple[np.ndarray, np.ndarray]:
         """
-        笛卡尔空间直线插值
+        笛卡尔空间直线插值（位置线性 + 旋转 SLERP）
         
         Args:
             pos_start: 起始位置 [x, y, z]
@@ -167,14 +175,17 @@ class TrajectoryPlanner:
         if orientation_end is None:
             orientation_end = np.eye(3)
         
-        orientations = np.zeros((num_steps, 3, 3))
-        for i in range(num_steps):
-            alpha = i / (num_steps - 1)
-            orientations[i] = (1 - alpha) * orientation_start + alpha * orientation_end
+        # 使用四元数 SLERP 进行旋转插值，保证中间帧为合法旋转矩阵
+        rot_start = Rotation.from_matrix(orientation_start)
+        rot_end = Rotation.from_matrix(orientation_end)
+        slerp = Slerp([0, 1], Rotation.concatenate([rot_start, rot_end]))
+        times = np.linspace(0, 1, num_steps)
+        orientations = slerp(times).as_matrix()
         
         return positions, orientations
     
-    def generate_approach_trajectory(self, current_pos, target_pos, approach_distance=0.1, num_steps=50):
+    def generate_approach_trajectory(self, current_pos: np.ndarray, target_pos: np.ndarray,
+                                      approach_distance: float = 0.1, num_steps: int = 50) -> np.ndarray:
         """
         生成接近目标的轨迹（先移动到目标上方，再下降到目标）
         

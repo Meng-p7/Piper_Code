@@ -1,11 +1,14 @@
+from __future__ import annotations
+
 import numpy as np
 import cv2
+from typing import Optional
 
 
 class ObjectDetector:
     """目标检测器：基于颜色的小球检测"""
     
-    def __init__(self, color_ranges=None):
+    def __init__(self, color_ranges: dict | None = None) -> None:
         """
         初始化目标检测器
         
@@ -39,7 +42,8 @@ class ObjectDetector:
         else:
             self.color_ranges = color_ranges
     
-    def detect_color_blobs(self, image, color_name="red", min_area=100):
+    def detect_color_blobs(self, image: np.ndarray, color_name: str = "red",
+                           min_area: int = 100) -> tuple[list[tuple[int, int]], np.ndarray]:
         """
         检测指定颜色的色块
         
@@ -81,7 +85,7 @@ class ObjectDetector:
         
         return centers, mask
     
-    def detect_ball_position(self, image, color_name="red"):
+    def detect_ball_position(self, image: np.ndarray, color_name: str = "red") -> tuple[Optional[tuple[float, float]], Optional[float]]:
         """
         检测小球位置（返回最大色块的中心）
         
@@ -114,7 +118,8 @@ class ObjectDetector:
         
         return None, None
     
-    def visualize_detection(self, image, centers, color=(0, 255, 0)):
+    def visualize_detection(self, image: np.ndarray, centers: list[tuple[int, int]],
+                            color: tuple[int, int, int] = (0, 255, 0)) -> np.ndarray:
         """
         可视化检测结果
         
@@ -134,7 +139,8 @@ class ObjectDetector:
         
         return vis_image
     
-    def filter_by_depth(self, centers, depth_image, min_depth=0.1, max_depth=2.0):
+    def filter_by_depth(self, image: np.ndarray, depth_image: np.ndarray,
+                        min_depth: float = 0.1, max_depth: float = 2.0) -> np.ndarray:
         """
         根据深度过滤检测结果
         

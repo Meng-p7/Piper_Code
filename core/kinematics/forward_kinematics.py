@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import numpy as np
 import mujoco
 
@@ -5,7 +7,7 @@ import mujoco
 class ForwardKinematics:
     """正运动学：根据关节角度计算末端位姿"""
     
-    def __init__(self, model, ee_body_name="link7"):
+    def __init__(self, model: mujoco.MjModel, ee_body_name: str = "link7") -> None:
         """
         初始化正运动学
         
@@ -18,7 +20,7 @@ class ForwardKinematics:
         self.ee_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, ee_body_name)
         self.ee_body_name = ee_body_name
     
-    def compute(self, qpos):
+    def compute(self, qpos: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """
         计算末端位姿
         
@@ -37,7 +39,7 @@ class ForwardKinematics:
         
         return position, orientation
     
-    def get_ee_pose(self, data=None):
+    def get_ee_pose(self, data: mujoco.MjData | None = None) -> tuple[np.ndarray, np.ndarray]:
         """
         获取当前末端位姿
         

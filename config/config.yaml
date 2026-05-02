@@ -9,9 +9,24 @@ robot:
   name: "piper"
   dof: 6
   gripper_dof: 1
-  ee_name: "link7"
+  # 关节名称
+  joint_names: ["joint1", "joint2", "joint3", "joint4", "joint5", "joint6"]
+  gripper_joint_names: ["joint7", "joint8"]
+  gripper_bodies: ["link7", "link8"]
+  # 末端执行器名称
+  ee_body_name: "link7"       # 用于获取末端位姿
+  ik_ee_body_name: "link6"    # 用于 IK 求解
+  # 运动约束
   max_velocity: 0.5
   max_acceleration: 0.3
+  # 夹爪参数
+  gripper:
+    open_ctrl: 0.035
+    close_ctrl: 0.015
+    range: 0.035
+  # 预定义位姿
+  home_qpos: [0, 1.57, -1.3485, 0, 0, 0]
+  observe_qpos: [0, 0.8, -1.0, 0, 0, 0]
 
 controller:
   type: "position"
@@ -28,6 +43,18 @@ vision:
 calibration:
   method: "hand_eye"
   num_samples: 20
+
+data_collection:
+  save_dir: "./data"
+  frequency: 50
+
+# 抓取演示参数
+grasp_demo:
+  ball_radius: 0.02
+  ball_body_name: "target_ball"
+  approach_height: 0.15
+  pre_grasp_height: 0.03
+  place_position: [0.25, -0.15]
 
 data_collection:
   save_dir: "./data"

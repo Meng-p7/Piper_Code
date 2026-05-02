@@ -38,13 +38,19 @@ PiperSim/
 │   │   ├── camera.py                # MuJoCo 相机（RGB/深度/坐标转换）
 │   │   └── object_detector.py       # HSV 颜色目标检测
 │   ├── calibration/                 # 标定模块
-│   │   └── hand_eye_calibration.py  # 手眼标定（Tsai-Lenz，框架代码）
+│   │   └── hand_eye_calibration.py  # 手眼标定（Tsai-Lenz 轴角+SVD，eye_in_hand/eye_to_hand 双模式）
 │   └── data_collection/             # 数据采集模块
 │       └── data_recorder.py         # 数据记录与回放
-├── utils/                           # 工具函数（预留）
+├── utils/                           # 工具函数
+│   ├── config_loader.py              # YAML 配置加载（单例模式）
+│   └── logger.py                     # 结构化日志（logging 模块封装）
 ├── tests/                           # 测试与示例代码
-│   ├── run_piper.py                 # 基础运动测试
-│   └── grasp_ball_demo.py           # 视觉抓取小球演示
+│   ├── run_piper.py                  # 基础运动测试
+│   ├── grasp_ball_demo.py            # 视觉抓取小球演示（13 步 Pick-and-Place）
+│   ├── test_kinematics.py            # FK/IK 往返一致性测试
+│   ├── test_trajectory.py            # 轨迹规划器/SLERP 正交性测试
+│   ├── test_config.py                # 配置加载测试
+│   └── test_hand_eye.py              # 手眼标定合成数据验证
 ├── data/                            # 数据存储目录
 ├── requirements.txt                 # 依赖列表
 └── README.md
@@ -267,9 +273,10 @@ q_target, success = ik.solve_gripper_position([0.35, 0, 0.02], q_init=q_current,
 
 ### 手眼标定模块 (core/calibration)
 
-当前为框架代码，支持 Tsai-Lenz 算法的基本数据结构：
-- `add_sample(robot_pose, camera_pose)` — 添加标定样本
-- `calibrate()` — 执行标定（旋转求解部分待完善）
+基于 Tsai-Lenz 轴角+SVD 方法，求解 AX=XB 方程：
+- 支持 `eye_in_hand`（相机装末端）和 `eye_to_hand`（相机固定）两种模式
+- 旋转求解精度 ~1e-16（合成数据验证通过）
+- 合成数据验证脚本: `python -c "..."`（见验证方法）
 
 ### 数据采集模块 (core/data_collection)
 
@@ -283,21 +290,29 @@ q_target, success = ik.solve_gripper_position([0.35, 0, 0.02], q_init=q_current,
 
 - [x] Piper 机械臂 URDF/MJCF 模型导入
 - [x] 正/逆运动学模块（含夹爪中心 IK 求解）
-- [x] 多种轨迹插值算法
+- [x] 多种轨迹插值算法（含 SLERP 旋转插值）
 - [x] 仿真/真机解耦控制器架构
 - [x] MuJoCo 相机 RGB/深度图像获取
 - [x] 像素坐标到世界坐标的转换
 - [x] HSV 颜色目标检测
-- [x] 抓取演示框架（完整流程可运行）
-- [x] **阶段一：完整 Pick-and-Place 抓取调通（2026-05-02）**
+- [x] 抓取演示框架（完整 13 步 Pick-and-Place 可运行）
+- [x] **阶段一：完整抓取调通（2026-05-02）**
+- [x] **笛卡尔 SLERP 旋转插值修复**
+- [x] **config.yaml 接入（config_loader 单例）**
+- [x] **grasp_ball_demo 迁移到 SimulationController**
+- [x] **手眼标定 Tsai-Lenz 旋转求解实现（误差 ~1e-16）**
+- [x] **10 文件类型注解全覆盖**
+- [x] **4 个测试文件（kinematics/trajectory/config/hand_eye）**
+- [x] **核心模块结构化日志（logger.py）**
 
-### 已知问题
+### 待完成
 
-1. **固定相机在 headless 模式下检测不到球** — 相机位姿需在实际渲染环境中验证
-2. **控制器架构未完全统一** — `grasp_ball_demo.py` 直接操作 `data.ctrl`，后续可迁移到 `SimulationController`
-3. **`config.yaml` 未被加载** — 参数硬编码在各模块中
+- [ ] 标定板 MuJoCo 模型 + 自动采集流程
+- [ ] 视觉伺服（PBVS/IBVS）
 
-### 阶段一：最终参数记录
+---
+
+## 开发路线图
 
 | 参数 | 值 | 说明 |
 |------|-----|------|

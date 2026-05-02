@@ -1,13 +1,20 @@
+from __future__ import annotations
+
 import os
 import numpy as np
 import json
 from datetime import datetime
+from typing import Any
+
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class DataRecorder:
     """数据采集与记录模块"""
     
-    def __init__(self, save_dir="./data", frequency=50):
+    def __init__(self, save_dir: str = "./data", frequency: int = 50) -> None:
         """
         初始化数据记录器
         
@@ -32,7 +39,7 @@ class DataRecorder:
         
         os.makedirs(save_dir, exist_ok=True)
     
-    def start_session(self, task_name="default"):
+    def start_session(self, task_name: str = "default") -> None:
         """
         开始新的采集会话
         
@@ -64,10 +71,11 @@ class DataRecorder:
         }
         
         self.is_recording = True
-        print(f"开始数据采集会话: {session_name}")
+        logger.info("开始数据采集会话: %s", session_name)
     
-    def record_step(self, timestamp, qpos, qvel, ee_pos, ee_rot, gripper_pos, 
-                    image=None, target_pos=None):
+    def record_step(self, timestamp: float, qpos: np.ndarray, qvel: np.ndarray,
+                    ee_pos: np.ndarray, ee_rot: np.ndarray, gripper_pos: float,
+                    image: np.ndarray | None = None, target_pos: np.ndarray | None = None) -> None:
         """
         记录一步数据
         
@@ -97,10 +105,10 @@ class DataRecorder:
         if target_pos is not None:
             self.data_buffer["target_positions"].append(target_pos.tolist())
     
-    def save_session(self):
+    def save_session(self) -> None:
         """保存当前会话数据"""
         if not self.is_recording or self.current_session is None:
-            print("没有活跃的数据采集会话")
+            logger.warning("save_session: 没有活跃的数据采集会话")
             return
         
         session_dir = self.current_session["dir"]
@@ -136,12 +144,12 @@ class DataRecorder:
         with open(metadata_file, "w") as f:
             json.dump(metadata, f, indent=2)
         
-        print(f"数据已保存到: {session_dir}")
-        print(f"  样本数: {metadata['num_samples']}")
+        logger.info("数据已保存到: %s", session_dir)
+        logger.info("  样本数: %d", metadata['num_samples'])
         
         self.is_recording = False
     
-    def load_session(self, session_dir):
+    def load_session(self, session_dir: str) -> dict[str, Any]:
         """
         加载已保存的会话数据
         
@@ -156,14 +164,14 @@ class DataRecorder:
         with open(data_file, "r") as f:
             data = json.load(f)
         
-        print(f"已从 {session_dir} 加载数据")
-        print(f"  样本数: {len(data['timestamps'])}")
+        logger.info("已从 %s 加载数据", session_dir)
+        logger.info("  样本数: %d", len(data['timestamps']))
         
         return data
     
-    def stop_session(self):
+    def stop_session(self) -> None:
         """停止当前采集会话并保存"""
         if self.is_recording:
             self.save_session()
         else:
-            print("没有活跃的数据采集会话")
+            logger.warning("stop_session: 没有活跃的数据采集会话")

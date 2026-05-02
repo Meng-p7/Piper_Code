@@ -1,10 +1,14 @@
+from __future__ import annotations
+
 import numpy as np
 from scipy.optimize import minimize
 import mujoco
 
 
 class InverseKinematics:
-    def __init__(self, model, ee_body_name="link6", joint_names=None, gripper_bodies=None):
+    def __init__(self, model: mujoco.MjModel, ee_body_name: str = "link6",
+                 joint_names: list[str] | None = None,
+                 gripper_bodies: list[str] | None = None) -> None:
         self.model = model
         self.data = mujoco.MjData(model)
         self.ee_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, ee_body_name)
@@ -28,7 +32,7 @@ class InverseKinematics:
         
         self._init_valid_qpos()
     
-    def _init_valid_qpos(self):
+    def _init_valid_qpos(self) -> None:
         for jid in range(self.model.njnt):
             if self.model.jnt_type[jid] == mujoco.mjtJoint.mjJNT_FREE:
                 adr = self.model.jnt_qposadr[jid]
@@ -37,7 +41,7 @@ class InverseKinematics:
                 adr = self.model.jnt_qposadr[jid]
                 self.data.qpos[adr:adr+4] = [1, 0, 0, 0]
     
-    def _get_joint_limits(self):
+    def _get_joint_limits(self) -> list[tuple[float, float]]:
         limits = []
         for jid in self.joint_ids:
             if self.model.jnt_limited[jid]:
@@ -46,7 +50,8 @@ class InverseKinematics:
                 limits.append((-3.14, 3.14))
         return limits
     
-    def solve_position(self, target_pos, q_init=None, q_full=None, orientation_weight=0.0):
+    def solve_position(self, target_pos: np.ndarray, q_init: np.ndarray | None = None,
+                       q_full: np.ndarray | None = None, orientation_weight: float = 0.0) -> tuple[np.ndarray, bool]:
         if q_init is None:
             q_init = np.zeros(self.num_joints)
         
@@ -81,7 +86,8 @@ class InverseKinematics:
         success = result.fun < 1e-4
         return result.x, success
     
-    def solve_pose(self, target_pos, target_orientation=None, q_init=None, q_full=None):
+    def solve_pose(self, target_pos: np.ndarray, target_orientation: np.ndarray | None = None,
+                   q_init: np.ndarray | None = None, q_full: np.ndarray | None = None) -> tuple[np.ndarray, bool]:
         if q_init is None:
             q_init = np.zeros(self.num_joints)
         
@@ -116,7 +122,8 @@ class InverseKinematics:
         success = result.fun < 1e-3
         return result.x, success
     
-    def solve_gripper_position(self, target_pos, q_init=None, q_full=None):
+    def solve_gripper_position(self, target_pos: np.ndarray, q_init: np.ndarray | None = None,
+                               q_full: np.ndarray | None = None) -> tuple[np.ndarray, bool]:
         if not self.gripper_ids:
             return self.solve_position(target_pos, q_init, q_full)
         if q_init is None:
@@ -143,7 +150,7 @@ class InverseKinematics:
         success = result.fun < 1e-6
         return result.x, success
 
-    def _ensure_valid_quaternions(self):
+    def _ensure_valid_quaternions(self) -> None:
         for jid in self.joint_ids:
             if self.model.jnt_type[jid] == mujoco.mjtJoint.mjJNT_FREE:
                 adr = self.model.jnt_qposadr[jid]

@@ -1,9 +1,12 @@
+from __future__ import annotations
+
 import numpy as np
 import mujoco
 
 
 class Camera:
-    def __init__(self, model, data, camera_name="camera", width=640, height=480):
+    def __init__(self, model: mujoco.MjModel, data: mujoco.MjData,
+                 camera_name: str = "camera", width: int = 640, height: int = 480) -> None:
         self.model = model
         self.data = data
         self.camera_name = camera_name
@@ -13,19 +16,19 @@ class Camera:
         self.camera_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_CAMERA, camera_name)
         self.renderer = mujoco.Renderer(model, height, width)
     
-    def get_image(self):
+    def get_image(self) -> np.ndarray:
         self.renderer.update_scene(self.data, self.camera_id)
         image = self.renderer.render()
         return image
     
-    def get_depth(self):
+    def get_depth(self) -> np.ndarray:
         self.renderer.update_scene(self.data, self.camera_id)
         self.renderer.enable_depth_rendering()
         depth = self.renderer.render()
         self.renderer.disable_depth_rendering()
         return depth
     
-    def get_camera_params(self):
+    def get_camera_params(self) -> tuple[float, float, float, float]:
         cam = self.model.cam(self.camera_id)
         fovy = cam.fovy[0]
         
@@ -37,12 +40,12 @@ class Camera:
         
         return fx, fy, cx, cy
     
-    def get_camera_pose(self):
+    def get_camera_pose(self) -> tuple[np.ndarray, np.ndarray]:
         position = self.data.cam_xpos[self.camera_id].copy()
         orientation = self.data.cam_xmat[self.camera_id].copy().reshape(3, 3)
         return position, orientation
     
-    def pixel_to_world(self, u, v, depth):
+    def pixel_to_world(self, u: int, v: int, depth: float) -> np.ndarray:
         """
         将像素坐标和深度转换为世界坐标
         
