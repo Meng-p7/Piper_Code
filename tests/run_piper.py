@@ -14,7 +14,7 @@ from core.kinematics import ForwardKinematics, InverseKinematics
 from core.trajectory import TrajectoryPlanner
 from core.controller import SimulationController
 
-MODEL_PATH = os.path.join(os.path.dirname(__file__), "models", "scene.xml")
+MODEL_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "models", "scene.xml")
 
 TARGET_XYZ = np.array([0.3, 0.2, 0.15])
 SPEED = 0.02
@@ -22,15 +22,15 @@ SPEED = 0.02
 model = mujoco.MjModel.from_xml_path(MODEL_PATH)
 data = mujoco.MjData(model)
 
-fk = ForwardKinematics(model, ee_body_name="link7")
-ik = InverseKinematics(model, ee_body_name="link7")
+fk = ForwardKinematics(model, ee_body_name="link6")
+ik = InverseKinematics(model, ee_body_name="link6")
 planner = TrajectoryPlanner()
 
 controller = SimulationController(
     model,
     data,
-    joint_names=[f"joint{i}" for i in range(1, 8)],
-    gripper_joint_names=["gripper_left", "gripper_right"]
+    joint_names=[f"joint{i}" for i in range(1, 7)],
+    gripper_joint_names=["joint7", "joint8"]
 )
 
 q_target, success = ik.solve_position(TARGET_XYZ)
@@ -40,14 +40,14 @@ print(f"IK求解: {'成功' if success else '失败'}")
 with mujoco.viewer.launch_passive(model, data) as viewer:
     controller.connect()
     
-    q_current = data.qpos[:7].copy()
+    q_current = controller.get_joint_positions()
     num_steps = 200
     trajectory = planner.quintic_interpolation(q_current, q_target, num_steps)
     
     try:
         for q_cmd in trajectory:
-            data.ctrl[:7] = q_cmd
-            data.ctrl[7:9] = 0.04
+            controller.send_joint_command(q_cmd)
+            controller.send_gripper_command(1.0)
             mujoco.mj_step(model, data)
             viewer.sync()
         

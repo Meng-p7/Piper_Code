@@ -24,15 +24,23 @@ class SimulationController(BaseController):
             joint_names = [f"joint{i}" for i in range(1, 7)]
         
         self.joint_ids = []
+        self.joint_qpos_adrs = []
+        self.arm_actuator_ids = []
         for name in joint_names:
             jid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, name)
             self.joint_ids.append(jid)
+            self.joint_qpos_adrs.append(model.jnt_qposadr[jid])
+            aid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_ACTUATOR, name)
+            self.arm_actuator_ids.append(aid)
         
         self.gripper_joint_ids = []
+        self.gripper_actuator_ids = []
         if gripper_joint_names is not None:
             for name in gripper_joint_names:
                 jid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, name)
                 self.gripper_joint_ids.append(jid)
+            gripper_actuator_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_ACTUATOR, "gripper")
+            self.gripper_actuator_ids.append(gripper_actuator_id)
         
         self.num_joints = len(self.joint_ids)
         self.ee_body_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, "link7")
@@ -49,11 +57,17 @@ class SimulationController(BaseController):
     
     def get_joint_positions(self):
         """获取当前关节角度"""
-        return self.data.qpos[self.joint_ids].copy()
+        qpos = np.zeros(len(self.joint_qpos_adrs))
+        for i, adr in enumerate(self.joint_qpos_adrs):
+            qpos[i] = self.data.qpos[adr]
+        return qpos
     
     def get_joint_velocities(self):
         """获取当前关节速度"""
-        return self.data.qvel[self.joint_ids].copy()
+        qvel = np.zeros(len(self.joint_qpos_adrs))
+        for i, adr in enumerate(self.joint_qpos_adrs):
+            qvel[i] = self.data.qvel[adr]
+        return qvel
     
     def get_ee_pose(self):
         """获取末端执行器位姿"""
@@ -63,8 +77,8 @@ class SimulationController(BaseController):
     
     def send_joint_command(self, q_target):
         """发送关节位置命令"""
-        for i, jid in enumerate(self.joint_ids):
-            self.data.ctrl[jid] = q_target[i]
+        for i, aid in enumerate(self.arm_actuator_ids):
+            self.data.ctrl[aid] = q_target[i]
     
     def send_gripper_command(self, position):
         """
@@ -73,11 +87,11 @@ class SimulationController(BaseController):
         Args:
             position: 0 表示闭合，1 表示打开
         """
-        gripper_range = 0.04
+        gripper_range = 0.035
         gripper_pos = position * gripper_range
         
-        for jid in self.gripper_joint_ids:
-            self.data.ctrl[jid] = gripper_pos
+        for aid in self.gripper_actuator_ids:
+            self.data.ctrl[aid] = gripper_pos
     
     def step(self):
         """执行一步仿真"""

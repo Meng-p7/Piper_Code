@@ -27,7 +27,7 @@
 
     <body name="target_ball" pos="0.35 0 0.02">
       <freejoint name="ball_joint"/>
-      <geom name="ball_geom" size="0.02" material="ball_red" condim="3" friction="1.0 0.05 0.01" solref="0.01 1" solimp="0.9 0.95 0.001"/>
+      <geom name="ball_geom" size="0.02" mass="0.03" material="ball_red" condim="4" friction="3.0 2.5 0.05" solref="0.015 0.7" solimp="0.95 0.99 0.002"/>
     </body>
   </worldbody>
 </mujoco>

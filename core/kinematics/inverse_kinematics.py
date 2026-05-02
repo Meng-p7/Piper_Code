@@ -17,9 +17,11 @@ class InverseKinematics:
             joint_names = [f"joint{i}" for i in range(1, 7)]
         
         self.joint_ids = []
+        self.joint_qpos_adrs = []
         for name in joint_names:
             jid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, name)
             self.joint_ids.append(jid)
+            self.joint_qpos_adrs.append(model.jnt_qposadr[jid])
         
         self.joint_limits = self._get_joint_limits()
         self.num_joints = len(self.joint_ids)
@@ -53,7 +55,8 @@ class InverseKinematics:
             self._ensure_valid_quaternions()
         
         def cost_function(q):
-            self.data.qpos[self.joint_ids] = q
+            for i, adr in enumerate(self.joint_qpos_adrs):
+                self.data.qpos[adr] = q[i]
             mujoco.mj_forward(self.model, self.data)
             
             current_pos = self.data.xpos[self.ee_id]
@@ -90,7 +93,8 @@ class InverseKinematics:
             self._ensure_valid_quaternions()
         
         def cost_function(q):
-            self.data.qpos[self.joint_ids] = q
+            for i, adr in enumerate(self.joint_qpos_adrs):
+                self.data.qpos[adr] = q[i]
             mujoco.mj_forward(self.model, self.data)
             
             current_pos = self.data.xpos[self.ee_id]
@@ -121,7 +125,8 @@ class InverseKinematics:
             self.data.qpos[:] = q_full.copy()
             self._ensure_valid_quaternions()
         def cost_function(q):
-            self.data.qpos[self.joint_ids] = q
+            for i, adr in enumerate(self.joint_qpos_adrs):
+                self.data.qpos[adr] = q[i]
             mujoco.mj_forward(self.model, self.data)
             gripper_center = np.zeros(3)
             for gid in self.gripper_ids:
