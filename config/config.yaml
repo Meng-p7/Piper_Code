@@ -1,4 +1,4 @@
-# Piper 机械臂仿真配置
+# PiperSim — Piper 机械臂仿真配置
 
 simulation:
   timestep: 0.002

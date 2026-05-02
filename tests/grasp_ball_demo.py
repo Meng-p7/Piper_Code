@@ -1,5 +1,5 @@
 """
-Piper 机械臂视觉抓取仿真例程
+PiperSim 视觉抓取仿真例程
 
 功能：机械臂通过视觉识别红色小球，并移动到目标位置完成抓取
 运行方式：python tests/grasp_ball_demo.py
@@ -241,7 +241,7 @@ class GraspBallDemo:
     
     def run_demo(self):
         print("=" * 50)
-        print("Piper 机械臂抓取演示")
+        print("PiperSim 抓取演示")
         print("=" * 50)
         
         with mujoco.viewer.launch_passive(self.model, self.data) as viewer:

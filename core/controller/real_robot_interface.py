@@ -6,7 +6,7 @@ class RealRobotInterface(BaseController):
     """
     真机机械臂接口预留类
     
-    此类定义了与真实 Piper 机械臂通信的接口框架。
+    此类定义了与真实 Piper 机械臂通信的接口框架（PiperSim 项目）。
     实际使用时需要根据具体的通信协议（如串口、TCP、ROS等）实现。
     """
     
