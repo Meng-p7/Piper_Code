@@ -2,6 +2,18 @@
 
 基于 MuJoCo 物理引擎的 Piper 机械臂仿真与控制系统，支持仿真/真机解耦架构，预留手眼标定、运动规划、视觉伺服接口。
 
+## 项目背景
+
+Piper 是一款 6 自由度 SCARA 构型桌面机械臂（末端带 1 自由度平行夹爪），由 **松灵机器人（AgileX）** 出品，常用于教育、科研和轻量级自动化场景。
+
+本项目旨在提供一个 **开箱即用的 Piper 机械臂 MuJoCo 仿真环境**，帮助开发者、机器人爱好者和学生在没有真实硬件的情况下也能学习和研究机械臂控制。项目包含完整的运动学求解、轨迹规划、仿真控制器、视觉检测和抓取流程演示，并预留了真机接口，方便后续迁移到真实硬件上运行。
+
+无论你是机器人初学者还是经验丰富的开发者，都可以通过本项目的示例代码快速上手机械臂仿真与控制。
+
+> **GitHub 地址**: [https://github.com/Meng-p7/Piper_Code.git](https://github.com/Meng-p7/Piper_Code.git)
+
+---
+
 ## 项目架构
 
 ```
@@ -39,23 +51,147 @@ Piper_Code/
 └── README.md
 ```
 
-## 环境要求
+## 环境搭建（面向新手）
+
+以下步骤从零开始，手把手教你搭建运行本项目所需的环境。
+
+> **前置要求**: 电脑已安装 Python 3.9~3.11（推荐 3.10）和 Git。如果没有 Git，也可以直接下载 ZIP 压缩包。
+
+---
+
+### 第一步：安装 Miniconda / Anaconda（推荐）
+
+Conda 是一个流行的 Python 环境管理工具，可以让你在同一台电脑上管理多个互不干扰的 Python 环境。
+
+- **Miniconda**（轻量推荐）: 从 [https://docs.anaconda.com/miniconda/](https://docs.anaconda.com/miniconda/) 下载安装
+- **Anaconda**（包含更多数据科学包）: 从 [https://www.anaconda.com/download](https://www.anaconda.com/download) 下载安装
+
+安装完成后，打开终端（Windows 请打开 "Anaconda Prompt" 或 "Miniforge Prompt"），验证安装：
 
 ```bash
-pip install mujoco>=2.3.0 numpy>=1.24.0 scipy>=1.10.0 opencv-python>=4.8.0 matplotlib>=3.7.0 PyYAML>=6.0
+conda --version
 ```
+
+如果能显示版本号（如 `conda 24.x.x`），说明安装成功。
+
+---
+
+### 第二步：克隆项目
+
+打开终端，进入你想存放项目的目录，然后克隆仓库：
+
+```bash
+git clone https://github.com/Meng-p7/Piper_Code.git
+cd Piper_Code
+```
+
+> 💡 如果没有安装 Git，也可以去 [https://github.com/Meng-p7/Piper_Code](https://github.com/Meng-p7/Piper_Code) 点击绿色的 "Code" → "Download ZIP"，解压后进入 `Piper_Code` 文件夹，在该目录下打开终端。
+
+---
+
+### 第三步：创建 Conda 环境
+
+为项目创建一个独立的 Python 环境，避免与系统中其他项目的依赖冲突：
+
+```bash
+conda create -n piper python=3.10 -y
+```
+
+激活环境：
+
+```bash
+conda activate piper
+```
+
+激活后，终端前面会出现 `(piper)` 字样，表示你已进入该环境。
+
+---
+
+### 第四步：安装 MuJoCo
+
+MuJoCo 是项目依赖的核心物理引擎，负责渲染和物理仿真。
+
+**方法一：通过 pip 安装（推荐，Python 3.10+ 适用）**
+
+```bash
+pip install mujoco
+```
+
+验证安装：
+
+```bash
+python -c "import mujoco; print(mujoco.__version__)"
+```
+
+如果能正常输出版本号（如 `3.x.x`），说明安装成功。
+
+如果遇到错误，请参考 [MuJoCo 官方安装指南](https://mujoco.readthedocs.io/en/stable/programming/index.html)。
+
+> **注意**: MuJoCo 需要 OpenGL 支持。如果在远程服务器（无物理显示器）或 WSL 上运行，可能需要安装虚拟显存驱动。常见 Linux 发行版可尝试：
+> ```bash
+> sudo apt install libgl1-mesa-glx libglib2.0-0  # Ubuntu/Debian
+> ```
+
+---
+
+### 第五步：安装其他 Python 依赖
+
+本项目还需要 NumPy、SciPy、OpenCV 等科学计算和计算机视觉库。项目根目录已提供 `requirements.txt`，一键安装：
+
+```bash
+pip install -r requirements.txt
+```
+
+如果希望单独安装，也可以手动执行以下命令：
+
+```bash
+pip install numpy>=1.24.0 scipy>=1.10.0 opencv-python>=4.8.0 matplotlib>=3.7.0 PyYAML>=6.0
+```
+
+---
+
+### ✅ 环境验证
+
+运行以下命令，验证所有依赖是否正确安装：
+
+```python
+python -c "
+import mujoco
+import numpy as np
+import cv2
+import scipy
+import matplotlib
+import yaml
+print('✅ 所有依赖安装成功！')
+print(f'  MuJoCo:    {mujoco.__version__}')
+print(f'  NumPy:     {np.__version__}')
+print(f'  OpenCV:    {cv2.__version__}')
+print(f'  SciPy:     {scipy.__version__}')
+print(f'  Matplotlib: {matplotlib.__version__}')
+"
+```
+
+如果看到 ✅ 绿色标记，恭喜你！环境搭建完成，可以开始体验了 🎉
+
+---
 
 ## 快速开始
 
+确保你已经 **激活 conda 环境**（终端前面有 `(piper)` 字样），并且位于项目根目录 `Piper_Code` 下。
+
 ### 1. 基础运动控制
+
+运行基础运动测试脚本，观察机械臂的运动效果：
 
 ```bash
 python tests/run_piper.py
 ```
 
-机械臂将平滑移动到目标位置 `[0.3, 0.2, 0.15]`。
+执行后，MuJoCo 仿真窗口将会打开，机械臂将平滑移动到目标位置 `[0.3, 0.2, 0.15]`。
 
 ### 2. 视觉抓取小球演示（Pick-and-Place 完整流程）
+
+运行完整的抓取演示，观看机械臂自动识别并抓取小球的完整流程：
 
 ```bash
 python examples/grasp_ball_demo.py
