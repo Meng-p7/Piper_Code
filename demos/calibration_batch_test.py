@@ -37,7 +37,7 @@ JOINT_LIMITS = np.array([
 
 HOME_QPOS = np.array([0.0, 1.57, -1.57, 0.0, 1.57, 0.0])
 NUM_SAMPLES = 15
-MAX_ATTEMPTS = 300
+MAX_ATTEMPTS = 50
 STEPS_PER_RAD = 300
 CAMERA_NAME = "wrist_camera"
 
@@ -109,15 +109,11 @@ def run_single_calibration(model, data, seeds, run_id):
 
         T_cam_board = detect_checkerboard(camera)
         if T_cam_board is None:
-            step_to(model, data, controller, planner, seed)
-            T_cam_board = detect_checkerboard(camera)
             attempt += 1
-            if T_cam_board is None:
-                small_noise = rng.randn(6) * np.array([0.001, 0.002, 0.002, 0.002, 0.001, 0.002])
-                q_retry = np.clip(seed + small_noise, JOINT_LIMITS[:, 0], JOINT_LIMITS[:, 1])
-                step_to(model, data, controller, planner, q_retry)
-                T_cam_board = detect_checkerboard(camera)
-                attempt += 1
+            noise = rng.randn(6) * np.array([0.003, 0.005, 0.005, 0.006, 0.003, 0.006])
+            q_retry = np.clip(seed + noise, JOINT_LIMITS[:, 0], JOINT_LIMITS[:, 1])
+            step_to(model, data, controller, planner, q_retry)
+            T_cam_board = detect_checkerboard(camera)
 
         if T_cam_board is None:
             continue

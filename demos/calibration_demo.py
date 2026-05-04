@@ -20,6 +20,9 @@ import argparse
 import numpy as np
 import cv2
 
+# 解决 Wayland 下 Qt 后端兼容性问题
+os.environ["QT_QPA_PLATFORM"] = "xcb"
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import mujoco
@@ -49,7 +52,7 @@ JOINT_LIMITS = np.array([
 HOME_QPOS = np.array(config.robot.home_qpos)
 CAMERA_NAME = "wrist_camera"
 NUM_SAMPLES = 15
-MAX_ATTEMPTS = 300
+MAX_ATTEMPTS = 50
 STEPS_PER_RAD = 400
 
 SEED_FILE = os.path.join(
@@ -60,10 +63,10 @@ SEED_FILE = os.path.join(
 SEED_CONFIGS = None
 if os.path.exists(SEED_FILE):
     SEED_CONFIGS = np.load(SEED_FILE)
-    print(f"[INFO] 加载 {len(SEED_CONFIGS)} 个预计算种子: {SEED_FILE}")
+    print(f"加载 {len(SEED_CONFIGS)} 个种子")
 else:
-    print(f"[WARN] 预计算种子文件不存在: {SEED_FILE}")
-    print("[WARN] 请先运行: python demos/calibration_seed_generator.py")
+    print(f"种子文件不存在: {SEED_FILE}")
+    print("请先运行: python demos/calibration_seed_generator.py")
     sys.exit(1)
 
 def detect_checkerboard(camera, enhance=False):
@@ -99,14 +102,6 @@ def detect_checkerboard(camera, enhance=False):
     vis = image.copy()
     cv2.drawChessboardCorners(vis, (CHECKER_COLS, CHECKER_ROWS), corners, True)
     return T_cam_board, vis
-
-
-def random_joint_config(rng):
-    idx = rng.randint(len(SEED_CONFIGS))
-    seed = SEED_CONFIGS[idx]
-    noise = rng.randn(6) * np.array([0.002, 0.003, 0.003, 0.004, 0.002, 0.004])
-    q = seed + noise
-    return np.clip(q, JOINT_LIMITS[:, 0], JOINT_LIMITS[:, 1])
 
 
 def try_launch_viewer(model, data):
@@ -146,10 +141,13 @@ def _update_cam_preview(image, step_info=""):
         cv2.putText(display, step_info, (10, 25),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
     cv2.imshow("Wrist Camera", display)
-    cv2.waitKey(1)
+    cv2.setWindowProperty("Wrist Camera", cv2.WND_PROP_TOPMOST, 1)  # 置顶窗口
+    # 多调用几次 waitKey 确保事件队列被处理
+    for _ in range(3):
+        cv2.waitKey(1)
 
 
-def run_calibration(model, data, viewer=None, show_cam=True):
+def run_calibration(model, data, viewer=None, show_cam=True, save_frames=False):
     planner = TrajectoryPlanner(
         max_velocity=config.robot.max_velocity,
         max_acceleration=config.robot.max_acceleration,
@@ -165,8 +163,6 @@ def run_calibration(model, data, viewer=None, show_cam=True):
     )
     mujoco.mj_forward(model, data)
     board_pos = data.xpos[board_body_id].copy()
-    print(f"\n标定板中心位置: {board_pos}")
-
     rng = np.random.RandomState(42)
 
     step_to(model, data, controller, planner, HOME_QPOS, viewer)
@@ -179,57 +175,36 @@ def run_calibration(model, data, viewer=None, show_cam=True):
 
     while collected < NUM_SAMPLES and attempt < MAX_ATTEMPTS:
         attempt += 1
-        q_target = random_joint_config(rng)
-        step_to(model, data, controller, planner, q_target, viewer)
+        idx = rng.randint(len(SEED_CONFIGS))
+        seed_q = SEED_CONFIGS[idx]
+        step_to(model, data, controller, planner, seed_q, viewer)
 
         for _ in range(15):
             mujoco.mj_step(model, data)
             if viewer is not None:
                 viewer.sync()
 
-        T_cam_board, vis_image = detect_checkerboard(camera)
+        T_cam_board, vis_image = detect_checkerboard(camera, enhance=True)
 
-        if show_cam:
-            status = f"Attempt {attempt} | Samples {collected}/{NUM_SAMPLES}"
-            _update_cam_preview(vis_image, status)
-
-        # 局部修复重试: 若噪声导致失败，回退到纯净种子重试
         if T_cam_board is None:
-            best_idx = np.argmin(np.sum((SEED_CONFIGS - q_target) ** 2, axis=1))
-            seed_q = SEED_CONFIGS[best_idx]
-
-            step_to(model, data, controller, planner, seed_q, viewer)
+            attempt += 1
+            noise = rng.randn(6) * np.array([0.003, 0.005, 0.005, 0.006, 0.003, 0.006])
+            q_retry = np.clip(seed_q + noise, JOINT_LIMITS[:, 0], JOINT_LIMITS[:, 1])
+            step_to(model, data, controller, planner, q_retry, viewer)
             for _ in range(15):
                 mujoco.mj_step(model, data)
                 if viewer is not None:
                     viewer.sync()
             T_cam_board, vis_image = detect_checkerboard(camera, enhance=True)
-            attempt += 1
 
-            if show_cam and T_cam_board is not None:
-                status = f"Attempt {attempt} | Samples {collected}/{NUM_SAMPLES} (retry seed)"
-                _update_cam_preview(vis_image, status)
-
-            # 重试 2: 若种子也失败，尝试更小噪声的邻域
-            if T_cam_board is None and attempt < MAX_ATTEMPTS:
-                small_noise = rng.randn(6) * np.array([0.001, 0.002, 0.002, 0.002, 0.001, 0.002])
-                q_retry = seed_q + small_noise
-                q_retry = np.clip(q_retry, JOINT_LIMITS[:, 0], JOINT_LIMITS[:, 1])
-                step_to(model, data, controller, planner, q_retry, viewer)
-                for _ in range(15):
-                    mujoco.mj_step(model, data)
-                    if viewer is not None:
-                        viewer.sync()
-                T_cam_board, vis_image = detect_checkerboard(camera, enhance=True)
-                attempt += 1
-
-                if show_cam and T_cam_board is not None:
-                    status = f"Attempt {attempt} | Samples {collected}/{NUM_SAMPLES} (retry small)"
-                    _update_cam_preview(vis_image, status)
+        if show_cam and vis_image is not None:
+            status = f"Attempt {attempt} | Samples {collected}/{NUM_SAMPLES}"
+            _update_cam_preview(vis_image, status)
 
         if T_cam_board is None:
             continue
 
+        # 获取末端位姿，构造 T_base_ee
         ee_pos, ee_rot = controller.get_ee_pose()
         T_base_ee = np.eye(4)
         T_base_ee[:3, :3] = ee_rot
@@ -237,6 +212,15 @@ def run_calibration(model, data, viewer=None, show_cam=True):
 
         calib.add_sample(T_base_ee, T_cam_board)
         collected += 1
+
+        if save_frames and vis_image is not None:
+            frames_dir = os.path.join(
+                os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                "data", "calibration", "frames"
+            )
+            os.makedirs(frames_dir, exist_ok=True)
+            frame_path = os.path.join(frames_dir, f"sample_{collected:02d}.png")
+            cv2.imwrite(frame_path, cv2.cvtColor(vis_image, cv2.COLOR_RGB2BGR))
 
         cam_pos, _ = camera.get_camera_pose()
         dist = np.linalg.norm(cam_pos - board_pos)
@@ -259,7 +243,6 @@ def run_calibration(model, data, viewer=None, show_cam=True):
 
     print(f"采集完成: {collected} 组 / {attempt} 次尝试")
 
-    print("\n执行手眼标定 (Park 方法)...")
     T_result, ax_xb_error = calib.calibrate()
 
     mujoco.mj_forward(model, data)
@@ -276,16 +259,11 @@ def run_calibration(model, data, viewer=None, show_cam=True):
 
     T_cam2gripper_gt = np.linalg.inv(T_world_ee) @ T_world_cam
 
-    print("\n" + "=" * 60)
-    print("标定结果")
-    print("=" * 60)
 
+    print("标定结果")
     print(f"\n求解得到 T_cam2gripper (相机→末端):")
     print(f"  平移: [{T_result[0, 3]:.6f}, {T_result[1, 3]:.6f}, {T_result[2, 3]:.6f}]")
     print(f"  旋转:\n{T_result[:3, :3]}")
-
-    print(f"\n仿真真值 T_cam2gripper:")
-    print(f"  平移: [{T_cam2gripper_gt[0, 3]:.6f}, {T_cam2gripper_gt[1, 3]:.6f}, {T_cam2gripper_gt[2, 3]:.6f}]")
 
     R_diff = T_result[:3, :3].T @ T_cam2gripper_gt[:3, :3]
     angle_err = np.degrees(np.arccos(np.clip((np.trace(R_diff) - 1) / 2, -1, 1)))
@@ -294,16 +272,7 @@ def run_calibration(model, data, viewer=None, show_cam=True):
     print(f"\n精度评估 (与仿真真值对比):")
     print(f"  旋转误差:  {angle_err:.4f}°")
     print(f"  平移误差:  {trans_err * 1000:.4f} mm")
-    print(f"  AX=XB 平均残差: {ax_xb_error:.2e}")
 
-    if angle_err < 0.01 and trans_err < 1e-5:
-        print(f"  ★★★ 精确")
-    elif angle_err < 1.0 and trans_err < 1e-3:
-        print(f"  ★★☆ 良好")
-    elif angle_err < 5.0 and trans_err < 5e-3:
-        print(f"  ★☆☆ 一般")
-    else:
-        print(f"  ☆☆☆ 较差")
 
     save_path = os.path.join(
         os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
@@ -319,12 +288,11 @@ def run_calibration(model, data, viewer=None, show_cam=True):
 def main():
     parser = argparse.ArgumentParser(description="PiperSim 手眼标定演示")
     parser.add_argument("--headless", action="store_true", help="无头模式运行")
+    parser.add_argument("--save-frames", action="store_true", help="保存成功样本的相机帧到 data/calibration/frames/")
     args = parser.parse_args()
 
     print("=" * 60)
     print("PiperSim 手眼标定仿真演示 (Eye-in-Hand)")
-    print("标定板: 棋盘格 8x6 内角点, 方格边长 15mm")
-    print("=" * 60)
 
     model = mujoco.MjModel.from_xml_path(MODEL_PATH)
     data = mujoco.MjData(model)
@@ -336,13 +304,13 @@ def main():
             print("[INFO] 无法启动 viewer，自动切换到无头模式")
         else:
             print("[INFO] Viewer 已启动 (MuJoCo 3D 窗口)")
-        print("[INFO] 腕部相机预览窗口将实时显示")
+        if args.save_frames:
+            print("[INFO] 成功样本的相机帧将保存到 data/calibration/frames/")
 
     try:
-        run_calibration(model, data, viewer, show_cam=not args.headless)
+        run_calibration(model, data, viewer, show_cam=not args.headless, save_frames=args.save_frames)
 
         if viewer is not None:
-            print("\n" + "=" * 60)
             print("演示完成！按 ESC 或关闭 viewer 窗口退出")
             print("=" * 60)
             while viewer.is_running():
