@@ -54,26 +54,29 @@ MAX_ATTEMPTS = 300
 STEPS_PER_RAD = 400
 
 SEED_CONFIGS = [
-    np.array([0.0, 0.9, -0.9, 0.0, 1.1, 3.14]),
-    np.array([0.0, 1.0, -0.9, 0.0, 1.0, 3.14]),
+    # Tier 1: 高成功率种子 (>=8/10 with noise)
     np.array([0.0, 1.1, -1.0, 0.0, 1.0, 3.14]),
     np.array([0.0, 1.2, -1.0, 0.0, 1.0, 3.14]),
     np.array([0.0, 1.2, -1.1, 0.0, 0.9, 3.14]),
     np.array([0.0, 1.3, -0.8, 0.0, 0.6, 3.14]),
-    np.array([0.0, 0.7, -0.6, 0.0, 1.5, 3.14]),
-    np.array([0.0, 0.95, -0.95, 0.0, 1.05, 3.14]),
-    np.array([0.0, 1.05, -1.05, 0.0, 0.95, 3.14]),
-    np.array([0.0, 1.25, -1.05, 0.0, 0.95, 3.14]),
-    np.array([0.0, 1.35, -0.85, 0.0, 0.55, 3.14]),
-    np.array([-0.3, 0.9, -1.0, 0.0, 1.4, 3.14]),
-    np.array([-0.3, 0.7, -0.8, 0.0, 1.4, 3.14]),
-    np.array([-0.3, 1.1, -1.2, 0.0, 1.4, 3.14]),
-    np.array([-0.2, 0.9, -0.9, 0.0, 1.2, 3.14]),
-    np.array([-0.2, 1.0, -1.0, 0.0, 1.1, 3.14]),
     np.array([-0.2, 1.1, -1.1, 0.0, 1.0, 3.14]),
-    np.array([-0.2, 1.2, -1.1, 0.0, 0.9, 3.14]),
-    np.array([0.0, 0.85, -0.85, 0.0, 1.1, 3.14]),
-    np.array([0.0, 1.15, -1.15, 0.0, 0.85, 3.14]),
+    # 扩展高成功率区域
+    np.array([0.0, 1.15, -1.05, 0.0, 0.95, 3.14]),
+    np.array([0.0, 1.25, -0.95, 0.0, 0.85, 3.14]),
+    np.array([0.0, 1.35, -0.85, 0.0, 0.55, 3.14]),
+    np.array([-0.2, 1.2, -1.0, 0.0, 0.9, 3.14]),
+    np.array([-0.2, 1.0, -1.05, 0.0, 1.05, 3.14]),
+    # Tier 2: 中等成功率但提供多样性
+    np.array([0.0, 1.3, -0.9, 0.0, 0.7, 3.14]),
+    np.array([0.0, 1.1, -0.9, 0.0, 1.1, 3.14]),
+    np.array([-0.2, 1.15, -1.15, 0.0, 0.95, 3.14]),
+    np.array([0.2, 1.1, -1.05, 0.0, 0.95, 3.14]),
+    np.array([0.2, 1.2, -1.0, 0.0, 0.85, 3.14]),
+    np.array([-0.1, 1.25, -1.0, 0.0, 0.9, 3.14]),
+    np.array([0.1, 1.15, -0.95, 0.0, 1.0, 3.14]),
+    np.array([0.0, 1.05, -1.1, 0.0, 1.05, 3.14]),
+    np.array([-0.15, 1.05, -0.9, 0.0, 1.1, 3.14]),
+    np.array([0.15, 1.3, -0.85, 0.0, 0.65, 3.14]),
 ]
 
 _OCV2MJ = np.diag([1.0, -1.0, -1.0])
@@ -127,7 +130,7 @@ def detect_checkerboard(camera, obj_points):
 
 def random_joint_config(rng):
     seed = SEED_CONFIGS[rng.randint(len(SEED_CONFIGS))]
-    noise = rng.randn(6) * np.array([0.06, 0.08, 0.08, 0.10, 0.08, 0.10])
+    noise = rng.randn(6) * np.array([0.04, 0.06, 0.06, 0.08, 0.05, 0.06])
     q = seed + noise
     return np.clip(q, JOINT_LIMITS[:, 0], JOINT_LIMITS[:, 1])
 
@@ -217,6 +220,48 @@ def run_calibration(model, data, viewer=None, show_cam=True):
             status = f"Attempt {attempt} | Samples {collected}/{NUM_SAMPLES}"
             _update_cam_preview(vis_image, status)
 
+        # 局部修复重试: 若噪声导致失败，回退到纯净种子重试
+        if T_cam_board is None:
+            # 找到最接近当前 q_target 的种子配置
+            best_idx = 0
+            best_dist = float('inf')
+            for idx, seed in enumerate(SEED_CONFIGS):
+                d = np.sum((q_target - seed) ** 2)
+                if d < best_dist:
+                    best_dist = d
+                    best_idx = idx
+            seed_q = SEED_CONFIGS[best_idx]
+
+            # 重试 1: 回到纯净种子
+            step_to(model, data, controller, planner, seed_q, viewer)
+            for _ in range(15):
+                mujoco.mj_step(model, data)
+                if viewer is not None:
+                    viewer.sync()
+            T_cam_board, vis_image = detect_checkerboard(camera, obj_points)
+            attempt += 1  # 计为额外一次尝试
+
+            if show_cam and T_cam_board is not None:
+                status = f"Attempt {attempt} | Samples {collected}/{NUM_SAMPLES} (retry seed)"
+                _update_cam_preview(vis_image, status)
+
+            # 重试 2: 若种子也失败，尝试更小噪声的邻域
+            if T_cam_board is None and attempt < MAX_ATTEMPTS:
+                small_noise = rng.randn(6) * np.array([0.02, 0.03, 0.03, 0.04, 0.02, 0.03])
+                q_retry = seed_q + small_noise
+                q_retry = np.clip(q_retry, JOINT_LIMITS[:, 0], JOINT_LIMITS[:, 1])
+                step_to(model, data, controller, planner, q_retry, viewer)
+                for _ in range(15):
+                    mujoco.mj_step(model, data)
+                    if viewer is not None:
+                        viewer.sync()
+                T_cam_board, vis_image = detect_checkerboard(camera, obj_points)
+                attempt += 1
+
+                if show_cam and T_cam_board is not None:
+                    status = f"Attempt {attempt} | Samples {collected}/{NUM_SAMPLES} (retry small)"
+                    _update_cam_preview(vis_image, status)
+
         if T_cam_board is None:
             continue
 
@@ -231,6 +276,7 @@ def run_calibration(model, data, viewer=None, show_cam=True):
         cam_pos, _ = camera.get_camera_pose()
         dist = np.linalg.norm(cam_pos - board_pos)
         j_cfg = controller.get_joint_positions()
+        retry_tag = " (R)" if attempt > collected + (attempt - collected) // 2 else ""
         print(f"  [{collected:2d}/{NUM_SAMPLES}] (尝试 {attempt:3d}) "
               f"j1={j_cfg[0]:+.2f} "
               f"EE=[{ee_pos[0]:.3f}, {ee_pos[1]:.3f}, {ee_pos[2]:.3f}]  "
