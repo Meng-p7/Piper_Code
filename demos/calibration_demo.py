@@ -113,7 +113,7 @@ def try_launch_viewer(model, data):
         return None
 
 
-def step_to(model, data, controller, planner, q_target, viewer=None):
+def step_to(model, data, controller, planner, q_target, viewer=None, camera_preview_cb=None):
     q_current = controller.get_joint_positions()
     max_diff = np.max(np.abs(q_target - q_current))
     num_steps = max(300, int(max_diff * STEPS_PER_RAD))
@@ -124,6 +124,8 @@ def step_to(model, data, controller, planner, q_target, viewer=None):
         mujoco.mj_step(model, data)
         if viewer is not None:
             viewer.sync()
+        if camera_preview_cb is not None:
+            camera_preview_cb()
 
     for _ in range(50):
         controller.send_joint_command(q_target)
@@ -131,6 +133,8 @@ def step_to(model, data, controller, planner, q_target, viewer=None):
         mujoco.mj_step(model, data)
         if viewer is not None:
             viewer.sync()
+        if camera_preview_cb is not None:
+            camera_preview_cb()
 
 
 def _update_cam_preview(image, step_info=""):
@@ -173,16 +177,24 @@ def run_calibration(model, data, viewer=None, show_cam=True, save_frames=False):
     attempt = 0
     collected = 0
 
+    def camera_preview_cb():
+        if not show_cam:
+            return
+        cam_img = camera.get_image()
+        if cam_img is not None:
+            _update_cam_preview(cam_img, f"Samples {collected}/{NUM_SAMPLES}")
+
     while collected < NUM_SAMPLES and attempt < MAX_ATTEMPTS:
         attempt += 1
         idx = rng.randint(len(SEED_CONFIGS))
         seed_q = SEED_CONFIGS[idx]
-        step_to(model, data, controller, planner, seed_q, viewer)
+        step_to(model, data, controller, planner, seed_q, viewer, camera_preview_cb=camera_preview_cb)
 
         for _ in range(15):
             mujoco.mj_step(model, data)
             if viewer is not None:
                 viewer.sync()
+            camera_preview_cb()
 
         T_cam_board, vis_image = detect_checkerboard(camera, enhance=True)
 
@@ -190,16 +202,16 @@ def run_calibration(model, data, viewer=None, show_cam=True, save_frames=False):
             attempt += 1
             noise = rng.randn(6) * np.array([0.003, 0.005, 0.005, 0.006, 0.003, 0.006])
             q_retry = np.clip(seed_q + noise, JOINT_LIMITS[:, 0], JOINT_LIMITS[:, 1])
-            step_to(model, data, controller, planner, q_retry, viewer)
+            step_to(model, data, controller, planner, q_retry, viewer, camera_preview_cb=camera_preview_cb)
             for _ in range(15):
                 mujoco.mj_step(model, data)
                 if viewer is not None:
                     viewer.sync()
+                camera_preview_cb()
             T_cam_board, vis_image = detect_checkerboard(camera, enhance=True)
 
         if show_cam and vis_image is not None:
-            status = f"Attempt {attempt} | Samples {collected}/{NUM_SAMPLES}"
-            _update_cam_preview(vis_image, status)
+            _update_cam_preview(vis_image, f"Samples {collected}/{NUM_SAMPLES}")
 
         if T_cam_board is None:
             continue
@@ -261,7 +273,7 @@ def run_calibration(model, data, viewer=None, show_cam=True, save_frames=False):
 
 
     print("标定结果")
-    print(f"\n求解得到 T_cam2gripper (相机→末端):")
+    print(f"求解得到 T_cam2gripper (相机→末端):")
     print(f"  平移: [{T_result[0, 3]:.6f}, {T_result[1, 3]:.6f}, {T_result[2, 3]:.6f}]")
     print(f"  旋转:\n{T_result[:3, :3]}")
 
@@ -269,7 +281,7 @@ def run_calibration(model, data, viewer=None, show_cam=True, save_frames=False):
     angle_err = np.degrees(np.arccos(np.clip((np.trace(R_diff) - 1) / 2, -1, 1)))
     trans_err = np.linalg.norm(T_result[:3, 3] - T_cam2gripper_gt[:3, 3])
 
-    print(f"\n精度评估 (与仿真真值对比):")
+    print(f"精度评估 (与仿真真值对比):")
     print(f"  旋转误差:  {angle_err:.4f}°")
     print(f"  平移误差:  {trans_err * 1000:.4f} mm")
 
@@ -312,7 +324,6 @@ def main():
 
         if viewer is not None:
             print("演示完成！按 ESC 或关闭 viewer 窗口退出")
-            print("=" * 60)
             while viewer.is_running():
                 mujoco.mj_step(model, data)
                 viewer.sync()

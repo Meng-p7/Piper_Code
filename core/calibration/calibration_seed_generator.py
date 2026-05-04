@@ -6,21 +6,15 @@ import os
 import sys
 import numpy as np
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, PROJECT_ROOT)
 
 import mujoco
 import cv2
 from core.vision import Camera
 
-MODEL_PATH = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-    "models", "calibration_scene.xml",
-)
-
-OUTPUT_PATH = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-    "data", "calibration", "calibration_seeds.npy",
-)
+MODEL_PATH = os.path.join(PROJECT_ROOT, "models", "calibration_scene.xml")
+OUTPUT_PATH = os.path.join(PROJECT_ROOT, "data", "calibration", "calibration_seeds.npy")
 
 CHECKER_COLS = 8
 CHECKER_ROWS = 6
