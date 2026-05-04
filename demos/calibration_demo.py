@@ -36,7 +36,7 @@ MODEL_PATH = os.path.join(
 
 CHECKER_COLS = 8
 CHECKER_ROWS = 6
-SQUARE_SIZE = 0.030
+SQUARE_SIZE = 0.015
 
 JOINT_LIMITS = np.array([
     [-2.618, 2.618],
