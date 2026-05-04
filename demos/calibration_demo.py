@@ -54,7 +54,7 @@ MAX_ATTEMPTS = 300
 STEPS_PER_RAD = 400
 
 SEED_CONFIGS = [
-    # Tier 1: 高成功率种子 (>=8/10 with noise)
+    # 核心高成功率种子 (>=8/10 with noise) — 主要采样池
     np.array([0.0, 1.1, -1.0, 0.0, 1.0, 3.14]),
     np.array([0.0, 1.2, -1.0, 0.0, 1.0, 3.14]),
     np.array([0.0, 1.2, -1.1, 0.0, 0.9, 3.14]),
@@ -66,17 +66,17 @@ SEED_CONFIGS = [
     np.array([0.0, 1.35, -0.85, 0.0, 0.55, 3.14]),
     np.array([-0.2, 1.2, -1.0, 0.0, 0.9, 3.14]),
     np.array([-0.2, 1.0, -1.05, 0.0, 1.05, 3.14]),
-    # Tier 2: 中等成功率但提供多样性
-    np.array([0.0, 1.3, -0.9, 0.0, 0.7, 3.14]),
-    np.array([0.0, 1.1, -0.9, 0.0, 1.1, 3.14]),
-    np.array([-0.2, 1.15, -1.15, 0.0, 0.95, 3.14]),
-    np.array([0.2, 1.1, -1.05, 0.0, 0.95, 3.14]),
-    np.array([0.2, 1.2, -1.0, 0.0, 0.85, 3.14]),
-    np.array([-0.1, 1.25, -1.0, 0.0, 0.9, 3.14]),
-    np.array([0.1, 1.15, -0.95, 0.0, 1.0, 3.14]),
-    np.array([0.0, 1.05, -1.1, 0.0, 1.05, 3.14]),
-    np.array([-0.15, 1.05, -0.9, 0.0, 1.1, 3.14]),
-    np.array([0.15, 1.3, -0.85, 0.0, 0.65, 3.14]),
+    # 中等成功率但提供空间多样性 — 降低采样权重
+    np.array([0.0, 1.0, -0.9, 0.0, 1.1, 3.14]),
+    np.array([0.0, 1.05, -1.05, 0.0, 0.95, 3.14]),
+    np.array([-0.3, 1.1, -1.0, 0.0, 1.1, 3.14]),
+    np.array([0.3, 1.1, -1.0, 0.0, 1.0, 3.14]),
+    np.array([0.0, 0.95, -0.85, 0.0, 1.15, 3.14]),
+    np.array([0.0, 1.4, -1.1, 0.0, 0.7, 3.14]),
+    np.array([-0.15, 1.15, -1.1, 0.0, 0.9, 3.14]),
+    np.array([0.15, 1.15, -1.0, 0.0, 1.0, 3.14]),
+    np.array([0.0, 1.1, -0.8, 0.0, 1.3, 3.14]),
+    np.array([0.0, 1.3, -1.15, 0.0, 0.8, 3.14]),
 ]
 
 _OCV2MJ = np.diag([1.0, -1.0, -1.0])
@@ -90,14 +90,20 @@ def build_object_points():
     return pts
 
 
-def detect_checkerboard(camera, obj_points):
+def detect_checkerboard(camera, obj_points, enhance=False):
     image = camera.get_image()
     gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
 
-    ret, corners = cv2.findChessboardCorners(
-        gray, (CHECKER_COLS, CHECKER_ROWS),
-        cv2.CALIB_CB_ADAPTIVE_THRESH + cv2.CALIB_CB_NORMALIZE_IMAGE + cv2.CALIB_CB_FAST_CHECK,
-    )
+    flags = cv2.CALIB_CB_ADAPTIVE_THRESH + cv2.CALIB_CB_NORMALIZE_IMAGE + cv2.CALIB_CB_FAST_CHECK
+    ret, corners = cv2.findChessboardCorners(gray, (CHECKER_COLS, CHECKER_ROWS), flags)
+
+    # 若首次失败且启用增强，尝试对比度增强
+    if not ret and enhance:
+        gray_eq = cv2.equalizeHist(gray)
+        ret, corners = cv2.findChessboardCorners(gray_eq, (CHECKER_COLS, CHECKER_ROWS), flags)
+        if ret:
+            gray = gray_eq  # 用增强后的图做 subpix
+
     if not ret:
         return None, image
 
@@ -129,7 +135,12 @@ def detect_checkerboard(camera, obj_points):
 
 
 def random_joint_config(rng):
-    seed = SEED_CONFIGS[rng.randint(len(SEED_CONFIGS))]
+    # 50% 概率从高成功率种子(前10个)采样，50% 从全部种子采样
+    # 平衡成功率与空间多样性
+    if rng.rand() < 0.5:
+        seed = SEED_CONFIGS[rng.randint(10)]
+    else:
+        seed = SEED_CONFIGS[rng.randint(len(SEED_CONFIGS))]
     noise = rng.randn(6) * np.array([0.04, 0.06, 0.06, 0.08, 0.05, 0.06])
     q = seed + noise
     return np.clip(q, JOINT_LIMITS[:, 0], JOINT_LIMITS[:, 1])
@@ -232,13 +243,13 @@ def run_calibration(model, data, viewer=None, show_cam=True):
                     best_idx = idx
             seed_q = SEED_CONFIGS[best_idx]
 
-            # 重试 1: 回到纯净种子
+            # 重试 1: 回到纯净种子 (带图像增强)
             step_to(model, data, controller, planner, seed_q, viewer)
             for _ in range(15):
                 mujoco.mj_step(model, data)
                 if viewer is not None:
                     viewer.sync()
-            T_cam_board, vis_image = detect_checkerboard(camera, obj_points)
+            T_cam_board, vis_image = detect_checkerboard(camera, obj_points, enhance=True)
             attempt += 1  # 计为额外一次尝试
 
             if show_cam and T_cam_board is not None:
@@ -255,7 +266,7 @@ def run_calibration(model, data, viewer=None, show_cam=True):
                     mujoco.mj_step(model, data)
                     if viewer is not None:
                         viewer.sync()
-                T_cam_board, vis_image = detect_checkerboard(camera, obj_points)
+                T_cam_board, vis_image = detect_checkerboard(camera, obj_points, enhance=True)
                 attempt += 1
 
                 if show_cam and T_cam_board is not None:
@@ -276,7 +287,6 @@ def run_calibration(model, data, viewer=None, show_cam=True):
         cam_pos, _ = camera.get_camera_pose()
         dist = np.linalg.norm(cam_pos - board_pos)
         j_cfg = controller.get_joint_positions()
-        retry_tag = " (R)" if attempt > collected + (attempt - collected) // 2 else ""
         print(f"  [{collected:2d}/{NUM_SAMPLES}] (尝试 {attempt:3d}) "
               f"j1={j_cfg[0]:+.2f} "
               f"EE=[{ee_pos[0]:.3f}, {ee_pos[1]:.3f}, {ee_pos[2]:.3f}]  "
