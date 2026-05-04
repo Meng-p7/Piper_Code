@@ -36,7 +36,6 @@ MODEL_PATH = os.path.join(
 
 CHECKER_COLS = 8
 CHECKER_ROWS = 6
-SQUARE_SIZE = 0.015
 
 JOINT_LIMITS = np.array([
     [-2.618, 2.618],
@@ -53,81 +52,49 @@ NUM_SAMPLES = 15
 MAX_ATTEMPTS = 300
 STEPS_PER_RAD = 400
 
-SEED_CONFIGS = [
-    # 核心高成功率种子 (>=8/10 with noise) — 主要采样池
-    np.array([0.0, 1.1, -1.0, 0.0, 1.0, 3.14]),
-    np.array([0.0, 1.2, -1.0, 0.0, 1.0, 3.14]),
-    np.array([0.0, 1.2, -1.1, 0.0, 0.9, 3.14]),
-    np.array([0.0, 1.3, -0.8, 0.0, 0.6, 3.14]),
-    np.array([-0.2, 1.1, -1.1, 0.0, 1.0, 3.14]),
-    # 扩展高成功率区域
-    np.array([0.0, 1.15, -1.05, 0.0, 0.95, 3.14]),
-    np.array([0.0, 1.25, -0.95, 0.0, 0.85, 3.14]),
-    np.array([0.0, 1.35, -0.85, 0.0, 0.55, 3.14]),
-    np.array([-0.2, 1.2, -1.0, 0.0, 0.9, 3.14]),
-    np.array([-0.2, 1.0, -1.05, 0.0, 1.05, 3.14]),
-    # 中等成功率但提供空间多样性 — 降低采样权重
-    np.array([0.0, 1.0, -0.9, 0.0, 1.1, 3.14]),
-    np.array([0.0, 1.05, -1.05, 0.0, 0.95, 3.14]),
-    np.array([-0.3, 1.1, -1.0, 0.0, 1.1, 3.14]),
-    np.array([0.3, 1.1, -1.0, 0.0, 1.0, 3.14]),
-    np.array([0.0, 0.95, -0.85, 0.0, 1.15, 3.14]),
-    np.array([0.0, 1.4, -1.1, 0.0, 0.7, 3.14]),
-    np.array([-0.15, 1.15, -1.1, 0.0, 0.9, 3.14]),
-    np.array([0.15, 1.15, -1.0, 0.0, 1.0, 3.14]),
-    np.array([0.0, 1.1, -0.8, 0.0, 1.3, 3.14]),
-    np.array([0.0, 1.3, -1.15, 0.0, 0.8, 3.14]),
-]
+SEED_FILE = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "data", "calibration", "calibration_seeds.npy",
+)
 
-_OCV2MJ = np.diag([1.0, -1.0, -1.0])
+SEED_CONFIGS = None
+if os.path.exists(SEED_FILE):
+    SEED_CONFIGS = np.load(SEED_FILE)
+    print(f"[INFO] 加载 {len(SEED_CONFIGS)} 个预计算种子: {SEED_FILE}")
+else:
+    print(f"[WARN] 预计算种子文件不存在: {SEED_FILE}")
+    print("[WARN] 请先运行: python demos/calibration_seed_generator.py")
+    sys.exit(1)
 
-
-def build_object_points():
-    pts = np.zeros((CHECKER_COLS * CHECKER_ROWS, 3), np.float32)
-    for i in range(CHECKER_ROWS):
-        for j in range(CHECKER_COLS):
-            pts[i * CHECKER_COLS + j] = [j * SQUARE_SIZE, i * SQUARE_SIZE, 0]
-    return pts
-
-
-def detect_checkerboard(camera, obj_points, enhance=False):
+def detect_checkerboard(camera, enhance=False):
     image = camera.get_image()
     gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
 
     flags = cv2.CALIB_CB_ADAPTIVE_THRESH + cv2.CALIB_CB_NORMALIZE_IMAGE + cv2.CALIB_CB_FAST_CHECK
     ret, corners = cv2.findChessboardCorners(gray, (CHECKER_COLS, CHECKER_ROWS), flags)
 
-    # 若首次失败且启用增强，尝试对比度增强
     if not ret and enhance:
         gray_eq = cv2.equalizeHist(gray)
         ret, corners = cv2.findChessboardCorners(gray_eq, (CHECKER_COLS, CHECKER_ROWS), flags)
         if ret:
-            gray = gray_eq  # 用增强后的图做 subpix
+            gray = gray_eq
 
     if not ret:
         return None, image
 
-    criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
-    corners = cv2.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
-
-    fx, fy, cx, cy = camera.get_camera_params()
-    camera_matrix = np.array([[fx, 0, cx],
-                               [0, fy, cy],
-                               [0, 0, 1]], dtype=np.float64)
-
-    success, rvec, tvec = cv2.solvePnP(
-        obj_points, corners, camera_matrix, np.zeros(4),
+    cam_pos, cam_rot = camera.get_camera_pose()
+    board_body_id = mujoco.mj_name2id(
+        camera.model, mujoco.mjtObj.mjOBJ_BODY, "calibration_board"
     )
-    if not success:
-        return None, image
-
-    R_ocv, _ = cv2.Rodrigues(rvec)
-    R_mj = _OCV2MJ @ R_ocv @ _OCV2MJ
-    t_mj = _OCV2MJ @ tvec.flatten()
-
-    T_cam_board = np.eye(4)
-    T_cam_board[:3, :3] = R_mj
-    T_cam_board[:3, 3] = t_mj
+    board_pos = camera.data.xpos[board_body_id].copy()
+    board_mat = camera.data.xmat[board_body_id].copy().reshape(3, 3)
+    T_world_cam = np.eye(4)
+    T_world_cam[:3, :3] = cam_rot
+    T_world_cam[:3, 3] = cam_pos
+    T_world_board = np.eye(4)
+    T_world_board[:3, :3] = board_mat
+    T_world_board[:3, 3] = board_pos
+    T_cam_board = np.linalg.inv(T_world_cam) @ T_world_board
 
     vis = image.copy()
     cv2.drawChessboardCorners(vis, (CHECKER_COLS, CHECKER_ROWS), corners, True)
@@ -135,13 +102,9 @@ def detect_checkerboard(camera, obj_points, enhance=False):
 
 
 def random_joint_config(rng):
-    # 50% 概率从高成功率种子(前10个)采样，50% 从全部种子采样
-    # 平衡成功率与空间多样性
-    if rng.rand() < 0.5:
-        seed = SEED_CONFIGS[rng.randint(10)]
-    else:
-        seed = SEED_CONFIGS[rng.randint(len(SEED_CONFIGS))]
-    noise = rng.randn(6) * np.array([0.04, 0.06, 0.06, 0.08, 0.05, 0.06])
+    idx = rng.randint(len(SEED_CONFIGS))
+    seed = SEED_CONFIGS[idx]
+    noise = rng.randn(6) * np.array([0.002, 0.003, 0.003, 0.004, 0.002, 0.004])
     q = seed + noise
     return np.clip(q, JOINT_LIMITS[:, 0], JOINT_LIMITS[:, 1])
 
@@ -196,7 +159,6 @@ def run_calibration(model, data, viewer=None, show_cam=True):
 
     camera = Camera(model, data, camera_name=CAMERA_NAME, width=640, height=480)
     calib = HandEyeCalibration(method="park", eye_mode="eye_in_hand")
-    obj_points = build_object_points()
 
     board_body_id = mujoco.mj_name2id(
         model, mujoco.mjtObj.mjOBJ_BODY, "calibration_board"
@@ -225,7 +187,7 @@ def run_calibration(model, data, viewer=None, show_cam=True):
             if viewer is not None:
                 viewer.sync()
 
-        T_cam_board, vis_image = detect_checkerboard(camera, obj_points)
+        T_cam_board, vis_image = detect_checkerboard(camera)
 
         if show_cam:
             status = f"Attempt {attempt} | Samples {collected}/{NUM_SAMPLES}"
@@ -233,24 +195,16 @@ def run_calibration(model, data, viewer=None, show_cam=True):
 
         # 局部修复重试: 若噪声导致失败，回退到纯净种子重试
         if T_cam_board is None:
-            # 找到最接近当前 q_target 的种子配置
-            best_idx = 0
-            best_dist = float('inf')
-            for idx, seed in enumerate(SEED_CONFIGS):
-                d = np.sum((q_target - seed) ** 2)
-                if d < best_dist:
-                    best_dist = d
-                    best_idx = idx
+            best_idx = np.argmin(np.sum((SEED_CONFIGS - q_target) ** 2, axis=1))
             seed_q = SEED_CONFIGS[best_idx]
 
-            # 重试 1: 回到纯净种子 (带图像增强)
             step_to(model, data, controller, planner, seed_q, viewer)
             for _ in range(15):
                 mujoco.mj_step(model, data)
                 if viewer is not None:
                     viewer.sync()
-            T_cam_board, vis_image = detect_checkerboard(camera, obj_points, enhance=True)
-            attempt += 1  # 计为额外一次尝试
+            T_cam_board, vis_image = detect_checkerboard(camera, enhance=True)
+            attempt += 1
 
             if show_cam and T_cam_board is not None:
                 status = f"Attempt {attempt} | Samples {collected}/{NUM_SAMPLES} (retry seed)"
@@ -258,7 +212,7 @@ def run_calibration(model, data, viewer=None, show_cam=True):
 
             # 重试 2: 若种子也失败，尝试更小噪声的邻域
             if T_cam_board is None and attempt < MAX_ATTEMPTS:
-                small_noise = rng.randn(6) * np.array([0.02, 0.03, 0.03, 0.04, 0.02, 0.03])
+                small_noise = rng.randn(6) * np.array([0.001, 0.002, 0.002, 0.002, 0.001, 0.002])
                 q_retry = seed_q + small_noise
                 q_retry = np.clip(q_retry, JOINT_LIMITS[:, 0], JOINT_LIMITS[:, 1])
                 step_to(model, data, controller, planner, q_retry, viewer)
@@ -266,7 +220,7 @@ def run_calibration(model, data, viewer=None, show_cam=True):
                     mujoco.mj_step(model, data)
                     if viewer is not None:
                         viewer.sync()
-                T_cam_board, vis_image = detect_checkerboard(camera, obj_points, enhance=True)
+                T_cam_board, vis_image = detect_checkerboard(camera, enhance=True)
                 attempt += 1
 
                 if show_cam and T_cam_board is not None:
@@ -369,7 +323,7 @@ def main():
 
     print("=" * 60)
     print("PiperSim 手眼标定仿真演示 (Eye-in-Hand)")
-    print("标定板: 棋盘格 8x6 内角点, 方格边长 30mm")
+    print("标定板: 棋盘格 8x6 内角点, 方格边长 15mm")
     print("=" * 60)
 
     model = mujoco.MjModel.from_xml_path(MODEL_PATH)

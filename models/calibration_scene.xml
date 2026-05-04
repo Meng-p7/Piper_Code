@@ -1,5 +1,4 @@
 <mujoco model="calibration_scene">
-  <compiler meshdir="agilex_piper/assets"/>
   <include file="agilex_piper/piper.xml"/>
 
   <statistic center="0 0 0.1" extent="0.4"/>
@@ -19,73 +18,72 @@
 
   <worldbody>
     <light pos="0 0 1.5" dir="0 0 -1" directional="true"/>
-    <geom name="floor" size="0 0 0.05" type="plane" material="groundplane"/>
-
+    <geom name="floor" type="plane" size="1 1 0.1" material="groundplane"/>
     <body name="calibration_board" pos="0.5 0 0.001">
-      <geom type="box" pos="-0.06000 -0.04500 0" size="0.0075 0.0075 0.001" rgba="0.02 0.02 0.02 1" contype="0" conaffinity="0"/>
-      <geom type="box" pos="-0.04500 -0.04500 0" size="0.0075 0.0075 0.001" rgba="0.98 0.98 0.98 1" contype="0" conaffinity="0"/>
-      <geom type="box" pos="-0.03000 -0.04500 0" size="0.0075 0.0075 0.001" rgba="0.02 0.02 0.02 1" contype="0" conaffinity="0"/>
-      <geom type="box" pos="-0.01500 -0.04500 0" size="0.0075 0.0075 0.001" rgba="0.98 0.98 0.98 1" contype="0" conaffinity="0"/>
-      <geom type="box" pos="0.00000 -0.04500 0" size="0.0075 0.0075 0.001" rgba="0.02 0.02 0.02 1" contype="0" conaffinity="0"/>
-      <geom type="box" pos="0.01500 -0.04500 0" size="0.0075 0.0075 0.001" rgba="0.98 0.98 0.98 1" contype="0" conaffinity="0"/>
-      <geom type="box" pos="0.03000 -0.04500 0" size="0.0075 0.0075 0.001" rgba="0.02 0.02 0.02 1" contype="0" conaffinity="0"/>
-      <geom type="box" pos="0.04500 -0.04500 0" size="0.0075 0.0075 0.001" rgba="0.98 0.98 0.98 1" contype="0" conaffinity="0"/>
-      <geom type="box" pos="0.06000 -0.04500 0" size="0.0075 0.0075 0.001" rgba="0.02 0.02 0.02 1" contype="0" conaffinity="0"/>
-      <geom type="box" pos="-0.06000 -0.03000 0" size="0.0075 0.0075 0.001" rgba="0.98 0.98 0.98 1" contype="0" conaffinity="0"/>
-      <geom type="box" pos="-0.04500 -0.03000 0" size="0.0075 0.0075 0.001" rgba="0.02 0.02 0.02 1" contype="0" conaffinity="0"/>
-      <geom type="box" pos="-0.03000 -0.03000 0" size="0.0075 0.0075 0.001" rgba="0.98 0.98 0.98 1" contype="0" conaffinity="0"/>
-      <geom type="box" pos="-0.01500 -0.03000 0" size="0.0075 0.0075 0.001" rgba="0.02 0.02 0.02 1" contype="0" conaffinity="0"/>
-      <geom type="box" pos="0.00000 -0.03000 0" size="0.0075 0.0075 0.001" rgba="0.98 0.98 0.98 1" contype="0" conaffinity="0"/>
-      <geom type="box" pos="0.01500 -0.03000 0" size="0.0075 0.0075 0.001" rgba="0.02 0.02 0.02 1" contype="0" conaffinity="0"/>
-      <geom type="box" pos="0.03000 -0.03000 0" size="0.0075 0.0075 0.001" rgba="0.98 0.98 0.98 1" contype="0" conaffinity="0"/>
-      <geom type="box" pos="0.04500 -0.03000 0" size="0.0075 0.0075 0.001" rgba="0.02 0.02 0.02 1" contype="0" conaffinity="0"/>
-      <geom type="box" pos="0.06000 -0.03000 0" size="0.0075 0.0075 0.001" rgba="0.98 0.98 0.98 1" contype="0" conaffinity="0"/>
-      <geom type="box" pos="-0.06000 -0.01500 0" size="0.0075 0.0075 0.001" rgba="0.02 0.02 0.02 1" contype="0" conaffinity="0"/>
-      <geom type="box" pos="-0.04500 -0.01500 0" size="0.0075 0.0075 0.001" rgba="0.98 0.98 0.98 1" contype="0" conaffinity="0"/>
-      <geom type="box" pos="-0.03000 -0.01500 0" size="0.0075 0.0075 0.001" rgba="0.02 0.02 0.02 1" contype="0" conaffinity="0"/>
-      <geom type="box" pos="-0.01500 -0.01500 0" size="0.0075 0.0075 0.001" rgba="0.98 0.98 0.98 1" contype="0" conaffinity="0"/>
-      <geom type="box" pos="0.00000 -0.01500 0" size="0.0075 0.0075 0.001" rgba="0.02 0.02 0.02 1" contype="0" conaffinity="0"/>
-      <geom type="box" pos="0.01500 -0.01500 0" size="0.0075 0.0075 0.001" rgba="0.98 0.98 0.98 1" contype="0" conaffinity="0"/>
-      <geom type="box" pos="0.03000 -0.01500 0" size="0.0075 0.0075 0.001" rgba="0.02 0.02 0.02 1" contype="0" conaffinity="0"/>
-      <geom type="box" pos="0.04500 -0.01500 0" size="0.0075 0.0075 0.001" rgba="0.98 0.98 0.98 1" contype="0" conaffinity="0"/>
-      <geom type="box" pos="0.06000 -0.01500 0" size="0.0075 0.0075 0.001" rgba="0.02 0.02 0.02 1" contype="0" conaffinity="0"/>
-      <geom type="box" pos="-0.06000 0.00000 0" size="0.0075 0.0075 0.001" rgba="0.98 0.98 0.98 1" contype="0" conaffinity="0"/>
-      <geom type="box" pos="-0.04500 0.00000 0" size="0.0075 0.0075 0.001" rgba="0.02 0.02 0.02 1" contype="0" conaffinity="0"/>
-      <geom type="box" pos="-0.03000 0.00000 0" size="0.0075 0.0075 0.001" rgba="0.98 0.98 0.98 1" contype="0" conaffinity="0"/>
-      <geom type="box" pos="-0.01500 0.00000 0" size="0.0075 0.0075 0.001" rgba="0.02 0.02 0.02 1" contype="0" conaffinity="0"/>
-      <geom type="box" pos="0.00000 0.00000 0" size="0.0075 0.0075 0.001" rgba="0.98 0.98 0.98 1" contype="0" conaffinity="0"/>
-      <geom type="box" pos="0.01500 0.00000 0" size="0.0075 0.0075 0.001" rgba="0.02 0.02 0.02 1" contype="0" conaffinity="0"/>
-      <geom type="box" pos="0.03000 0.00000 0" size="0.0075 0.0075 0.001" rgba="0.98 0.98 0.98 1" contype="0" conaffinity="0"/>
-      <geom type="box" pos="0.04500 0.00000 0" size="0.0075 0.0075 0.001" rgba="0.02 0.02 0.02 1" contype="0" conaffinity="0"/>
-      <geom type="box" pos="0.06000 0.00000 0" size="0.0075 0.0075 0.001" rgba="0.98 0.98 0.98 1" contype="0" conaffinity="0"/>
-      <geom type="box" pos="-0.06000 0.01500 0" size="0.0075 0.0075 0.001" rgba="0.02 0.02 0.02 1" contype="0" conaffinity="0"/>
-      <geom type="box" pos="-0.04500 0.01500 0" size="0.0075 0.0075 0.001" rgba="0.98 0.98 0.98 1" contype="0" conaffinity="0"/>
-      <geom type="box" pos="-0.03000 0.01500 0" size="0.0075 0.0075 0.001" rgba="0.02 0.02 0.02 1" contype="0" conaffinity="0"/>
-      <geom type="box" pos="-0.01500 0.01500 0" size="0.0075 0.0075 0.001" rgba="0.98 0.98 0.98 1" contype="0" conaffinity="0"/>
-      <geom type="box" pos="0.00000 0.01500 0" size="0.0075 0.0075 0.001" rgba="0.02 0.02 0.02 1" contype="0" conaffinity="0"/>
-      <geom type="box" pos="0.01500 0.01500 0" size="0.0075 0.0075 0.001" rgba="0.98 0.98 0.98 1" contype="0" conaffinity="0"/>
-      <geom type="box" pos="0.03000 0.01500 0" size="0.0075 0.0075 0.001" rgba="0.02 0.02 0.02 1" contype="0" conaffinity="0"/>
-      <geom type="box" pos="0.04500 0.01500 0" size="0.0075 0.0075 0.001" rgba="0.98 0.98 0.98 1" contype="0" conaffinity="0"/>
-      <geom type="box" pos="0.06000 0.01500 0" size="0.0075 0.0075 0.001" rgba="0.02 0.02 0.02 1" contype="0" conaffinity="0"/>
-      <geom type="box" pos="-0.06000 0.03000 0" size="0.0075 0.0075 0.001" rgba="0.98 0.98 0.98 1" contype="0" conaffinity="0"/>
-      <geom type="box" pos="-0.04500 0.03000 0" size="0.0075 0.0075 0.001" rgba="0.02 0.02 0.02 1" contype="0" conaffinity="0"/>
-      <geom type="box" pos="-0.03000 0.03000 0" size="0.0075 0.0075 0.001" rgba="0.98 0.98 0.98 1" contype="0" conaffinity="0"/>
-      <geom type="box" pos="-0.01500 0.03000 0" size="0.0075 0.0075 0.001" rgba="0.02 0.02 0.02 1" contype="0" conaffinity="0"/>
-      <geom type="box" pos="0.00000 0.03000 0" size="0.0075 0.0075 0.001" rgba="0.98 0.98 0.98 1" contype="0" conaffinity="0"/>
-      <geom type="box" pos="0.01500 0.03000 0" size="0.0075 0.0075 0.001" rgba="0.02 0.02 0.02 1" contype="0" conaffinity="0"/>
-      <geom type="box" pos="0.03000 0.03000 0" size="0.0075 0.0075 0.001" rgba="0.98 0.98 0.98 1" contype="0" conaffinity="0"/>
-      <geom type="box" pos="0.04500 0.03000 0" size="0.0075 0.0075 0.001" rgba="0.02 0.02 0.02 1" contype="0" conaffinity="0"/>
-      <geom type="box" pos="0.06000 0.03000 0" size="0.0075 0.0075 0.001" rgba="0.98 0.98 0.98 1" contype="0" conaffinity="0"/>
-      <geom type="box" pos="-0.06000 0.04500 0" size="0.0075 0.0075 0.001" rgba="0.02 0.02 0.02 1" contype="0" conaffinity="0"/>
-      <geom type="box" pos="-0.04500 0.04500 0" size="0.0075 0.0075 0.001" rgba="0.98 0.98 0.98 1" contype="0" conaffinity="0"/>
-      <geom type="box" pos="-0.03000 0.04500 0" size="0.0075 0.0075 0.001" rgba="0.02 0.02 0.02 1" contype="0" conaffinity="0"/>
-      <geom type="box" pos="-0.01500 0.04500 0" size="0.0075 0.0075 0.001" rgba="0.98 0.98 0.98 1" contype="0" conaffinity="0"/>
-      <geom type="box" pos="0.00000 0.04500 0" size="0.0075 0.0075 0.001" rgba="0.02 0.02 0.02 1" contype="0" conaffinity="0"/>
-      <geom type="box" pos="0.01500 0.04500 0" size="0.0075 0.0075 0.001" rgba="0.98 0.98 0.98 1" contype="0" conaffinity="0"/>
-      <geom type="box" pos="0.03000 0.04500 0" size="0.0075 0.0075 0.001" rgba="0.02 0.02 0.02 1" contype="0" conaffinity="0"/>
-      <geom type="box" pos="0.04500 0.04500 0" size="0.0075 0.0075 0.001" rgba="0.98 0.98 0.98 1" contype="0" conaffinity="0"/>
-      <geom type="box" pos="0.06000 0.04500 0" size="0.0075 0.0075 0.001" rgba="0.02 0.02 0.02 1" contype="0" conaffinity="0"/>
+      <geom type="box" size="0.1 0.06 0.001" rgba="1 1 1 1" mass="0.2"/>
+      <geom type="cylinder" pos="-0.0600 -0.0450 0.00201" size="0.0075 0.0005" rgba="0.1 0.1 0.1 1" contype="0" conaffinity="0" mass="0.001"/>
+      <geom type="cylinder" pos="-0.0450 -0.0450 0.00201" size="0.0075 0.0005" rgba="0.95 0.95 0.95 1" contype="0" conaffinity="0" mass="0.001"/>
+      <geom type="cylinder" pos="-0.0300 -0.0450 0.00201" size="0.0075 0.0005" rgba="0.1 0.1 0.1 1" contype="0" conaffinity="0" mass="0.001"/>
+      <geom type="cylinder" pos="-0.0150 -0.0450 0.00201" size="0.0075 0.0005" rgba="0.95 0.95 0.95 1" contype="0" conaffinity="0" mass="0.001"/>
+      <geom type="cylinder" pos="0.0000 -0.0450 0.00201" size="0.0075 0.0005" rgba="0.1 0.1 0.1 1" contype="0" conaffinity="0" mass="0.001"/>
+      <geom type="cylinder" pos="0.0150 -0.0450 0.00201" size="0.0075 0.0005" rgba="0.95 0.95 0.95 1" contype="0" conaffinity="0" mass="0.001"/>
+      <geom type="cylinder" pos="0.0300 -0.0450 0.00201" size="0.0075 0.0005" rgba="0.1 0.1 0.1 1" contype="0" conaffinity="0" mass="0.001"/>
+      <geom type="cylinder" pos="0.0450 -0.0450 0.00201" size="0.0075 0.0005" rgba="0.95 0.95 0.95 1" contype="0" conaffinity="0" mass="0.001"/>
+      <geom type="cylinder" pos="0.0600 -0.0450 0.00201" size="0.0075 0.0005" rgba="0.1 0.1 0.1 1" contype="0" conaffinity="0" mass="0.001"/>
+      <geom type="cylinder" pos="-0.0600 -0.0300 0.00201" size="0.0075 0.0005" rgba="0.95 0.95 0.95 1" contype="0" conaffinity="0" mass="0.001"/>
+      <geom type="cylinder" pos="-0.0450 -0.0300 0.00201" size="0.0075 0.0005" rgba="0.1 0.1 0.1 1" contype="0" conaffinity="0" mass="0.001"/>
+      <geom type="cylinder" pos="-0.0300 -0.0300 0.00201" size="0.0075 0.0005" rgba="0.95 0.95 0.95 1" contype="0" conaffinity="0" mass="0.001"/>
+      <geom type="cylinder" pos="-0.0150 -0.0300 0.00201" size="0.0075 0.0005" rgba="0.1 0.1 0.1 1" contype="0" conaffinity="0" mass="0.001"/>
+      <geom type="cylinder" pos="0.0000 -0.0300 0.00201" size="0.0075 0.0005" rgba="0.95 0.95 0.95 1" contype="0" conaffinity="0" mass="0.001"/>
+      <geom type="cylinder" pos="0.0150 -0.0300 0.00201" size="0.0075 0.0005" rgba="0.1 0.1 0.1 1" contype="0" conaffinity="0" mass="0.001"/>
+      <geom type="cylinder" pos="0.0300 -0.0300 0.00201" size="0.0075 0.0005" rgba="0.95 0.95 0.95 1" contype="0" conaffinity="0" mass="0.001"/>
+      <geom type="cylinder" pos="0.0450 -0.0300 0.00201" size="0.0075 0.0005" rgba="0.1 0.1 0.1 1" contype="0" conaffinity="0" mass="0.001"/>
+      <geom type="cylinder" pos="0.0600 -0.0300 0.00201" size="0.0075 0.0005" rgba="0.95 0.95 0.95 1" contype="0" conaffinity="0" mass="0.001"/>
+      <geom type="cylinder" pos="-0.0600 -0.0150 0.00201" size="0.0075 0.0005" rgba="0.1 0.1 0.1 1" contype="0" conaffinity="0" mass="0.001"/>
+      <geom type="cylinder" pos="-0.0450 -0.0150 0.00201" size="0.0075 0.0005" rgba="0.95 0.95 0.95 1" contype="0" conaffinity="0" mass="0.001"/>
+      <geom type="cylinder" pos="-0.0300 -0.0150 0.00201" size="0.0075 0.0005" rgba="0.1 0.1 0.1 1" contype="0" conaffinity="0" mass="0.001"/>
+      <geom type="cylinder" pos="-0.0150 -0.0150 0.00201" size="0.0075 0.0005" rgba="0.95 0.95 0.95 1" contype="0" conaffinity="0" mass="0.001"/>
+      <geom type="cylinder" pos="0.0000 -0.0150 0.00201" size="0.0075 0.0005" rgba="0.1 0.1 0.1 1" contype="0" conaffinity="0" mass="0.001"/>
+      <geom type="cylinder" pos="0.0150 -0.0150 0.00201" size="0.0075 0.0005" rgba="0.95 0.95 0.95 1" contype="0" conaffinity="0" mass="0.001"/>
+      <geom type="cylinder" pos="0.0300 -0.0150 0.00201" size="0.0075 0.0005" rgba="0.1 0.1 0.1 1" contype="0" conaffinity="0" mass="0.001"/>
+      <geom type="cylinder" pos="0.0450 -0.0150 0.00201" size="0.0075 0.0005" rgba="0.95 0.95 0.95 1" contype="0" conaffinity="0" mass="0.001"/>
+      <geom type="cylinder" pos="0.0600 -0.0150 0.00201" size="0.0075 0.0005" rgba="0.1 0.1 0.1 1" contype="0" conaffinity="0" mass="0.001"/>
+      <geom type="cylinder" pos="-0.0600 0.0000 0.00201" size="0.0075 0.0005" rgba="0.95 0.95 0.95 1" contype="0" conaffinity="0" mass="0.001"/>
+      <geom type="cylinder" pos="-0.0450 0.0000 0.00201" size="0.0075 0.0005" rgba="0.1 0.1 0.1 1" contype="0" conaffinity="0" mass="0.001"/>
+      <geom type="cylinder" pos="-0.0300 0.0000 0.00201" size="0.0075 0.0005" rgba="0.95 0.95 0.95 1" contype="0" conaffinity="0" mass="0.001"/>
+      <geom type="cylinder" pos="-0.0150 0.0000 0.00201" size="0.0075 0.0005" rgba="0.1 0.1 0.1 1" contype="0" conaffinity="0" mass="0.001"/>
+      <geom type="cylinder" pos="0.0000 0.0000 0.00201" size="0.0075 0.0005" rgba="0.95 0.95 0.95 1" contype="0" conaffinity="0" mass="0.001"/>
+      <geom type="cylinder" pos="0.0150 0.0000 0.00201" size="0.0075 0.0005" rgba="0.1 0.1 0.1 1" contype="0" conaffinity="0" mass="0.001"/>
+      <geom type="cylinder" pos="0.0300 0.0000 0.00201" size="0.0075 0.0005" rgba="0.95 0.95 0.95 1" contype="0" conaffinity="0" mass="0.001"/>
+      <geom type="cylinder" pos="0.0450 0.0000 0.00201" size="0.0075 0.0005" rgba="0.1 0.1 0.1 1" contype="0" conaffinity="0" mass="0.001"/>
+      <geom type="cylinder" pos="0.0600 0.0000 0.00201" size="0.0075 0.0005" rgba="0.95 0.95 0.95 1" contype="0" conaffinity="0" mass="0.001"/>
+      <geom type="cylinder" pos="-0.0600 0.0150 0.00201" size="0.0075 0.0005" rgba="0.1 0.1 0.1 1" contype="0" conaffinity="0" mass="0.001"/>
+      <geom type="cylinder" pos="-0.0450 0.0150 0.00201" size="0.0075 0.0005" rgba="0.95 0.95 0.95 1" contype="0" conaffinity="0" mass="0.001"/>
+      <geom type="cylinder" pos="-0.0300 0.0150 0.00201" size="0.0075 0.0005" rgba="0.1 0.1 0.1 1" contype="0" conaffinity="0" mass="0.001"/>
+      <geom type="cylinder" pos="-0.0150 0.0150 0.00201" size="0.0075 0.0005" rgba="0.95 0.95 0.95 1" contype="0" conaffinity="0" mass="0.001"/>
+      <geom type="cylinder" pos="0.0000 0.0150 0.00201" size="0.0075 0.0005" rgba="0.1 0.1 0.1 1" contype="0" conaffinity="0" mass="0.001"/>
+      <geom type="cylinder" pos="0.0150 0.0150 0.00201" size="0.0075 0.0005" rgba="0.95 0.95 0.95 1" contype="0" conaffinity="0" mass="0.001"/>
+      <geom type="cylinder" pos="0.0300 0.0150 0.00201" size="0.0075 0.0005" rgba="0.1 0.1 0.1 1" contype="0" conaffinity="0" mass="0.001"/>
+      <geom type="cylinder" pos="0.0450 0.0150 0.00201" size="0.0075 0.0005" rgba="0.95 0.95 0.95 1" contype="0" conaffinity="0" mass="0.001"/>
+      <geom type="cylinder" pos="0.0600 0.0150 0.00201" size="0.0075 0.0005" rgba="0.1 0.1 0.1 1" contype="0" conaffinity="0" mass="0.001"/>
+      <geom type="cylinder" pos="-0.0600 0.0300 0.00201" size="0.0075 0.0005" rgba="0.95 0.95 0.95 1" contype="0" conaffinity="0" mass="0.001"/>
+      <geom type="cylinder" pos="-0.0450 0.0300 0.00201" size="0.0075 0.0005" rgba="0.1 0.1 0.1 1" contype="0" conaffinity="0" mass="0.001"/>
+      <geom type="cylinder" pos="-0.0300 0.0300 0.00201" size="0.0075 0.0005" rgba="0.95 0.95 0.95 1" contype="0" conaffinity="0" mass="0.001"/>
+      <geom type="cylinder" pos="-0.0150 0.0300 0.00201" size="0.0075 0.0005" rgba="0.1 0.1 0.1 1" contype="0" conaffinity="0" mass="0.001"/>
+      <geom type="cylinder" pos="0.0000 0.0300 0.00201" size="0.0075 0.0005" rgba="0.95 0.95 0.95 1" contype="0" conaffinity="0" mass="0.001"/>
+      <geom type="cylinder" pos="0.0150 0.0300 0.00201" size="0.0075 0.0005" rgba="0.1 0.1 0.1 1" contype="0" conaffinity="0" mass="0.001"/>
+      <geom type="cylinder" pos="0.0300 0.0300 0.00201" size="0.0075 0.0005" rgba="0.95 0.95 0.95 1" contype="0" conaffinity="0" mass="0.001"/>
+      <geom type="cylinder" pos="0.0450 0.0300 0.00201" size="0.0075 0.0005" rgba="0.1 0.1 0.1 1" contype="0" conaffinity="0" mass="0.001"/>
+      <geom type="cylinder" pos="0.0600 0.0300 0.00201" size="0.0075 0.0005" rgba="0.95 0.95 0.95 1" contype="0" conaffinity="0" mass="0.001"/>
+      <geom type="cylinder" pos="-0.0600 0.0450 0.00201" size="0.0075 0.0005" rgba="0.1 0.1 0.1 1" contype="0" conaffinity="0" mass="0.001"/>
+      <geom type="cylinder" pos="-0.0450 0.0450 0.00201" size="0.0075 0.0005" rgba="0.95 0.95 0.95 1" contype="0" conaffinity="0" mass="0.001"/>
+      <geom type="cylinder" pos="-0.0300 0.0450 0.00201" size="0.0075 0.0005" rgba="0.1 0.1 0.1 1" contype="0" conaffinity="0" mass="0.001"/>
+      <geom type="cylinder" pos="-0.0150 0.0450 0.00201" size="0.0075 0.0005" rgba="0.95 0.95 0.95 1" contype="0" conaffinity="0" mass="0.001"/>
+      <geom type="cylinder" pos="0.0000 0.0450 0.00201" size="0.0075 0.0005" rgba="0.1 0.1 0.1 1" contype="0" conaffinity="0" mass="0.001"/>
+      <geom type="cylinder" pos="0.0150 0.0450 0.00201" size="0.0075 0.0005" rgba="0.95 0.95 0.95 1" contype="0" conaffinity="0" mass="0.001"/>
+      <geom type="cylinder" pos="0.0300 0.0450 0.00201" size="0.0075 0.0005" rgba="0.1 0.1 0.1 1" contype="0" conaffinity="0" mass="0.001"/>
+      <geom type="cylinder" pos="0.0450 0.0450 0.00201" size="0.0075 0.0005" rgba="0.95 0.95 0.95 1" contype="0" conaffinity="0" mass="0.001"/>
+      <geom type="cylinder" pos="0.0600 0.0450 0.00201" size="0.0075 0.0005" rgba="0.1 0.1 0.1 1" contype="0" conaffinity="0" mass="0.001"/>
     </body>
   </worldbody>
 </mujoco>
-
