@@ -45,12 +45,14 @@ PiperSim/
 │   ├── config_loader.py              # YAML 配置加载（单例模式）
 │   └── logger.py                     # 结构化日志（logging 模块封装）
 ├── tests/                           # 测试与示例代码
-│   ├── run_piper.py                  # 基础运动测试
-│   ├── grasp_ball_demo.py            # 视觉抓取小球演示（13 步 Pick-and-Place）
 │   ├── test_kinematics.py            # FK/IK 往返一致性测试
 │   ├── test_trajectory.py            # 轨迹规划器/SLERP 正交性测试
 │   ├── test_config.py                # 配置加载测试
 │   └── test_hand_eye.py              # 手眼标定合成数据验证
+├── demos/                           # 演示脚本
+│   ├── run_piper.py                  # 基础运动测试
+│   ├── grasp_ball_demo.py            # 视觉抓取小球演示（13 步 Pick-and-Place）
+│   └── calibration_demo.py           # 完整仿真手眼标定演示
 ├── data/                            # 数据存储目录
 ├── requirements.txt                 # 依赖列表
 └── README.md
@@ -189,7 +191,7 @@ print(f'  Matplotlib: {matplotlib.__version__}')
 运行基础运动测试脚本，观察机械臂的运动效果：
 
 ```bash
-python tests/run_piper.py
+python demos/run_piper.py
 ```
 
 执行后，MuJoCo 仿真窗口将会打开，机械臂将平滑移动到目标位置 `[0.3, 0.2, 0.15]`。
@@ -199,7 +201,7 @@ python tests/run_piper.py
 运行完整的抓取演示，观看机械臂自动识别并抓取小球的完整流程：
 
 ```bash
-python tests/grasp_ball_demo.py
+python demos/grasp_ball_demo.py
 ```
 
 演示流程（13步）：
@@ -441,9 +443,11 @@ core/calibration/
 └── calibration_utils.py             # 工具函数（误差计算、可视化、结果保存）
 
 tests/
-├── grasp_ball_demo.py               # 抓取演示
-├── calibration_demo.py              # 手眼标定演示（自动采集+标定+验证）
 └── calibration_visualize.py         # 标定结果可视化
+
+demos/
+├── grasp_ball_demo.py               # 抓取演示
+└── calibration_demo.py              # 手眼标定演示（自动采集+标定+验证）
 
 models/
 ├── calibration_board.xml            # 棋盘格标定板模型
@@ -484,7 +488,7 @@ core/visual_servo/
 ├── jacobian_estimator.py            # 图像雅可比矩阵估计
 └── feature_tracker.py               # 特征点跟踪（光流/模板匹配）
 
-tests/
+demos/
 ├── grasp_ball_demo.py
 ├── calibration_demo.py
 ├── pbvs_demo.py                     # PBVS 抓取演示

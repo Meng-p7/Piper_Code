@@ -29,5 +29,9 @@
       <freejoint name="ball_joint"/>
       <geom name="ball_geom" size="0.02" mass="0.03" material="ball_red" condim="4" friction="3.0 2.5 0.05" solref="0.015 0.7" solimp="0.95 0.99 0.002"/>
     </body>
+
+    <body name="calibration_target" pos="0.35 0.15 0.025">
+      <geom name="calib_marker" type="cylinder" size="0.025 0.015" rgba="1 0.5 0 1" mass="0.01"/>
+    </body>
   </worldbody>
 </mujoco>

@@ -226,6 +226,12 @@
                   <joint name="joint6" axis="0 0 1" range="-3.14 3.14"/>
                   <geom quat="0.707105 0 0 0.707108" mesh="link6" material="gray_mat" class="visual"/>
                   <geom quat="0.707105 0 0 0.707108" mesh="link6" class="collision"/>
+                  <body name="wrist_cam_body" pos="0.05 0 0.04" quat="0 1 0 0">
+                    <camera name="wrist_camera" pos="0 0 0" fovy="60"/>
+                    <geom name="cam_housing" type="box" pos="0 0 -0.015" size="0.014 0.017 0.012" rgba="0.15 0.15 0.15 1" contype="0" conaffinity="0" group="2"/>
+                    <geom name="cam_lens" type="cylinder" pos="0 0 -0.003" size="0.006 0.001" rgba="0.1 0.1 0.4 1" contype="0" conaffinity="0" group="2"/>
+                    <geom name="cam_indicator" type="sphere" pos="0.011 0.013 -0.022" size="0.002" rgba="0.1 0.8 0.1 1" contype="0" conaffinity="0" group="2"/>
+                  </body>
                   <body name="link7" pos="0 0 0.13503" quat="1.89468e-08 1.89469e-08 0.707108 0.707105" gravcomp="1">
                     <inertial pos="-0.000277778 -0.0467673 -0.00921029" quat="0.46134 0.536174 -0.553273 0.439968"
                       mass="0.0264823" diaginertia="0.001 0.001 0.001"/>

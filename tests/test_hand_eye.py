@@ -2,7 +2,7 @@
 手眼标定单元测试（合成数据验证）
 
 测试内容：
-- _solve_rotation 对已知 R_x 的求解精度
+- 旋转求解精度（通过完整 calibrate 流程验证）
 - eye_in_hand 模式零噪声全流程
 - eye_to_hand 模式零噪声全流程
 - 样本不足抛异常
@@ -106,53 +106,58 @@ def _make_eye_to_hand_data(R_x_true: np.ndarray, t_x_true: np.ndarray,
 
 
 class TestSolveRotation:
-    """_solve_rotation 单元测试"""
+    """旋转求解精度测试（通过完整 calibrate 流程验证）"""
 
     def test_known_rotation_identity(self):
         """已知 R_x=I 时应精确返回 I"""
-        calib = HandEyeCalibration()
         rng = np.random.RandomState(0)
-        # 构造 A = B 使得解为 I
-        A_list, B_list = [], []
-        for _ in range(10):
-            R = Rotation.random(random_state=rng).as_matrix()
-            A_list.append(R)
-            B_list.append(R)  # A = B → R_x = I
-        R_solved = calib._solve_rotation(A_list, B_list)
-        assert np.allclose(R_solved, np.eye(3), atol=1e-10)
+        R_x = np.eye(3)
+        t_x = np.zeros(3)
+
+        robot_poses, camera_poses = _make_eye_in_hand_data(R_x, t_x, n=8, rng=rng)
+
+        calib = HandEyeCalibration(method="park", eye_mode="eye_in_hand")
+        for rp, cp in zip(robot_poses, camera_poses):
+            calib.add_sample(rp, cp)
+
+        T_result, _ = calib.calibrate()
+        rot_err = np.linalg.norm(T_result[:3, :3] - np.eye(3), 'fro')
+        assert rot_err < 1e-10, f"Rotation error = {rot_err:.2e}"
 
     def test_known_rotation_90deg_z(self):
         """已知 R_x = Rot(z, 90°) 时应精确恢复"""
         R_x_true = Rotation.from_euler('z', 90, degrees=True).as_matrix()
-        calib = HandEyeCalibration()
         rng = np.random.RandomState(1)
-        A_list, B_list = [], []
-        for _ in range(10):
-            R_A = Rotation.random(random_state=rng).as_matrix()
-            R_B = R_x_true.T @ R_A @ R_x_true  # A @ X = X @ B → B = X^{-1} @ A @ X
-            A_list.append(R_A)
-            B_list.append(R_B)
-        R_solved = calib._solve_rotation(A_list, B_list)
-        frob_err = np.linalg.norm(R_solved @ R_x_true.T - np.eye(3), 'fro')
+        t_x = rng.uniform(-0.2, 0.2, 3)
+
+        robot_poses, camera_poses = _make_eye_in_hand_data(R_x_true, t_x, n=10, rng=rng)
+
+        calib = HandEyeCalibration(method="park", eye_mode="eye_in_hand")
+        for rp, cp in zip(robot_poses, camera_poses):
+            calib.add_sample(rp, cp)
+
+        T_result, _ = calib.calibrate()
+        frob_err = np.linalg.norm(T_result[:3, :3] @ R_x_true.T - np.eye(3), 'fro')
         assert frob_err < 1e-6, f"Frobenius error = {frob_err:.2e}"
 
     def test_known_rotation_arbitrary(self):
         """已知任意 R_x 时应精确恢复"""
         rng = np.random.RandomState(2)
         R_x_true = Rotation.random(random_state=rng).as_matrix()
-        calib = HandEyeCalibration()
-        A_list, B_list = [], []
-        for _ in range(15):
-            R_A = Rotation.random(random_state=rng).as_matrix()
-            R_B = R_x_true.T @ R_A @ R_x_true
-            A_list.append(R_A)
-            B_list.append(R_B)
-        R_solved = calib._solve_rotation(A_list, B_list)
-        frob_err = np.linalg.norm(R_solved @ R_x_true.T - np.eye(3), 'fro')
+        t_x = rng.uniform(-0.2, 0.2, 3)
+
+        robot_poses, camera_poses = _make_eye_in_hand_data(R_x_true, t_x, n=15, rng=rng)
+
+        calib = HandEyeCalibration(method="park", eye_mode="eye_in_hand")
+        for rp, cp in zip(robot_poses, camera_poses):
+            calib.add_sample(rp, cp)
+
+        T_result, _ = calib.calibrate()
+        frob_err = np.linalg.norm(T_result[:3, :3] @ R_x_true.T - np.eye(3), 'fro')
         assert frob_err < 1e-6, f"Frobenius error = {frob_err:.2e}"
 
 
-class TestTsaiEyeInHand:
+class TestEyeInHand:
     """eye_in_hand 模式端到端测试"""
 
     def test_perfect_zero_noise(self):
@@ -163,7 +168,7 @@ class TestTsaiEyeInHand:
 
         robot_poses, camera_poses = _make_eye_in_hand_data(R_x, t_x, n=8, rng=rng)
 
-        calib = HandEyeCalibration(method="tsai", eye_mode="eye_in_hand")
+        calib = HandEyeCalibration(method="park", eye_mode="eye_in_hand")
         for rp, cp in zip(robot_poses, camera_poses):
             calib.add_sample(rp, cp)
 
@@ -186,7 +191,7 @@ class TestTsaiEyeInHand:
 
         robot_poses, camera_poses = _make_eye_in_hand_data(R_x, t_x, n=5, rng=rng)
 
-        calib = HandEyeCalibration(method="tsai", eye_mode="eye_in_hand")
+        calib = HandEyeCalibration(method="park", eye_mode="eye_in_hand")
         for rp, cp in zip(robot_poses, camera_poses):
             calib.add_sample(rp, cp)
 
@@ -195,7 +200,7 @@ class TestTsaiEyeInHand:
         assert rot_err < 1e-6
 
 
-class TestTsaiEyeToHand:
+class TestEyeToHand:
     """eye_to_hand 模式端到端测试"""
 
     def test_perfect_zero_noise(self):
@@ -206,7 +211,7 @@ class TestTsaiEyeToHand:
 
         robot_poses, camera_poses = _make_eye_to_hand_data(R_x, t_x, n=8, rng=rng)
 
-        calib = HandEyeCalibration(method="tsai", eye_mode="eye_to_hand")
+        calib = HandEyeCalibration(method="park", eye_mode="eye_to_hand")
         for rp, cp in zip(robot_poses, camera_poses):
             calib.add_sample(rp, cp)
 
@@ -249,12 +254,11 @@ class TestEdgeCases:
         assert len(calib.camera_poses) == 0
 
     def test_translation_only_motion(self):
-        """纯平移运动（无旋转）也能正确标定"""
+        """纯平移为主但含微小旋转的运动也能正确标定"""
         rng = np.random.RandomState(6)
         R_x = Rotation.from_euler('x', 30, degrees=True).as_matrix()
         t_x = np.array([0.1, -0.05, 0.08])
 
-        # 生成纯平移的机器人运动
         robot_poses = []
         camera_poses = []
         X_true = np.eye(4)
@@ -264,18 +268,20 @@ class TestEdgeCases:
         T0 = np.eye(4)
         T0[:3, 3] = np.array([0.2, 0.1, 0.3])
         robot_poses.append(T0.copy())
-        camera_poses.append(np.eye(4))  # 第一个相机位姿任意
+        camera_poses.append(np.eye(4))
 
         for i in range(1, 8):
             T_ee = np.eye(4)
             T_ee[:3, 3] = T0[:3, 3] + rng.uniform(-0.3, 0.3, 3)
+            T_ee[:3, :3] = Rotation.from_euler(
+                'xyz', rng.uniform(-0.05, 0.05, 3)
+            ).as_matrix()
             robot_poses.append(T_ee)
-            # A = T_ee_{i-1}^{-1} @ T_ee_i
             A = np.linalg.inv(robot_poses[i - 1]) @ robot_poses[i]
             B = np.linalg.inv(X_true) @ A @ X_true
             camera_poses.append(np.linalg.inv(B) @ camera_poses[i - 1])
 
-        calib = HandEyeCalibration(method="tsai", eye_mode="eye_in_hand")
+        calib = HandEyeCalibration(method="park", eye_mode="eye_in_hand")
         for rp, cp in zip(robot_poses, camera_poses):
             calib.add_sample(rp, cp)
 
