@@ -50,8 +50,16 @@ class InverseKinematics:
                 limits.append((-3.14, 3.14))
         return limits
     
+    def _random_init(self) -> np.ndarray:
+        """在关节限位内生成随机初始值"""
+        q = np.zeros(self.num_joints)
+        for i, (low, high) in enumerate(self.joint_limits):
+            q[i] = np.random.uniform(low, high)
+        return q
+    
     def solve_position(self, target_pos: np.ndarray, q_init: np.ndarray | None = None,
-                       q_full: np.ndarray | None = None, orientation_weight: float = 0.0) -> tuple[np.ndarray, bool]:
+                       q_full: np.ndarray | None = None, orientation_weight: float = 0.0,
+                       max_retries: int = 3) -> tuple[np.ndarray, bool]:
         if q_init is None:
             q_init = np.zeros(self.num_joints)
         
@@ -75,19 +83,35 @@ class InverseKinematics:
             
             return pos_error
         
-        result = minimize(
-            cost_function,
-            q_init,
-            method="L-BFGS-B",
-            bounds=self.joint_limits,
-            options={"maxiter": 1000, "ftol": 1e-8}
-        )
+        best_result = None
+        best_fun = float('inf')
         
-        success = result.fun < 1e-4
-        return result.x, success
+        for attempt in range(max_retries + 1):
+            if attempt == 0:
+                q0 = q_init.copy()
+            else:
+                q0 = self._random_init()
+            
+            result = minimize(
+                cost_function,
+                q0,
+                method="L-BFGS-B",
+                bounds=self.joint_limits,
+                options={"maxiter": 1000, "ftol": 1e-8}
+            )
+            
+            if result.fun < best_fun:
+                best_fun = result.fun
+                best_result = result
+            
+            if result.fun < 1e-4:
+                return result.x, True
+        
+        return best_result.x, False
     
     def solve_pose(self, target_pos: np.ndarray, target_orientation: np.ndarray | None = None,
-                   q_init: np.ndarray | None = None, q_full: np.ndarray | None = None) -> tuple[np.ndarray, bool]:
+                   q_init: np.ndarray | None = None, q_full: np.ndarray | None = None,
+                   max_retries: int = 3) -> tuple[np.ndarray, bool]:
         if q_init is None:
             q_init = np.zeros(self.num_joints)
         
@@ -111,21 +135,37 @@ class InverseKinematics:
             
             return pos_error + 0.5 * rot_error
         
-        result = minimize(
-            cost_function,
-            q_init,
-            method="L-BFGS-B",
-            bounds=self.joint_limits,
-            options={"maxiter": 1000, "ftol": 1e-8}
-        )
+        best_result = None
+        best_fun = float('inf')
         
-        success = result.fun < 1e-3
-        return result.x, success
+        for attempt in range(max_retries + 1):
+            if attempt == 0:
+                q0 = q_init.copy()
+            else:
+                q0 = self._random_init()
+            
+            result = minimize(
+                cost_function,
+                q0,
+                method="L-BFGS-B",
+                bounds=self.joint_limits,
+                options={"maxiter": 1000, "ftol": 1e-8}
+            )
+            
+            if result.fun < best_fun:
+                best_fun = result.fun
+                best_result = result
+            
+            if result.fun < 1e-3:
+                return result.x, True
+        
+        return best_result.x, False
     
     def solve_gripper_position(self, target_pos: np.ndarray, q_init: np.ndarray | None = None,
-                               q_full: np.ndarray | None = None) -> tuple[np.ndarray, bool]:
+                               q_full: np.ndarray | None = None,
+                               max_retries: int = 3) -> tuple[np.ndarray, bool]:
         if not self.gripper_ids:
-            return self.solve_position(target_pos, q_init, q_full)
+            return self.solve_position(target_pos, q_init, q_full, max_retries=max_retries)
         if q_init is None:
             q_init = np.zeros(self.num_joints)
         if q_full is not None:
@@ -140,15 +180,32 @@ class InverseKinematics:
                 gripper_center += self.data.xpos[gid]
             gripper_center /= len(self.gripper_ids)
             return np.sum((gripper_center - target_pos) ** 2)
-        result = minimize(
-            cost_function,
-            q_init,
-            method="L-BFGS-B",
-            bounds=self.joint_limits,
-            options={"maxiter": 2000, "ftol": 1e-12}
-        )
-        success = result.fun < 1e-6
-        return result.x, success
+        
+        best_result = None
+        best_fun = float('inf')
+        
+        for attempt in range(max_retries + 1):
+            if attempt == 0:
+                q0 = q_init.copy()
+            else:
+                q0 = self._random_init()
+            
+            result = minimize(
+                cost_function,
+                q0,
+                method="L-BFGS-B",
+                bounds=self.joint_limits,
+                options={"maxiter": 2000, "ftol": 1e-12}
+            )
+            
+            if result.fun < best_fun:
+                best_fun = result.fun
+                best_result = result
+            
+            if result.fun < 1e-6:
+                return result.x, True
+        
+        return best_result.x, False
 
     def _ensure_valid_quaternions(self) -> None:
         for jid in self.joint_ids:

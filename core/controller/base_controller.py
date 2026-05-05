@@ -72,6 +72,16 @@ class BaseController(ABC):
         pass
     
     @abstractmethod
+    def send_joint_velocity(self, qvel: np.ndarray) -> None:
+        """
+        发送关节速度命令
+        
+        Args:
+            qvel: 关节速度数组
+        """
+        pass
+    
+    @abstractmethod
     def send_gripper_command(self, position: float) -> None:
         """
         发送夹爪位置命令
@@ -97,6 +107,26 @@ class BaseController(ABC):
         q_current = self.get_joint_positions()
         q_cmd = (1 - speed) * q_current + speed * q_target
         self.send_joint_command(q_cmd)
+    
+    def run_loop(self, duration: float, dt: float | None = None,
+                 callback: callable | None = None) -> None:
+        """
+        实时控制循环
+        
+        Args:
+            duration: 运行总时长（秒）
+            dt: 控制周期（秒），默认用模型 timestep
+            callback: 每步回调函数，签名为 callback(controller, t) -> None
+        """
+        if dt is None:
+            dt = 0.002
+        
+        steps = int(duration / dt)
+        for i in range(steps):
+            t = i * dt
+            if callback is not None:
+                callback(self, t)
+            self.step()
     
     def open_gripper(self) -> None:
         """打开夹爪"""

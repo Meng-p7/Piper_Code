@@ -117,7 +117,7 @@ class TestInverseKinematics:
         # 夹爪中心在 link6 下方约 0.135m
         gripper_target = pos + np.array([0.02, -0.01, -0.135])
         q_solved, success = ik.solve_gripper_position(gripper_target,
-                                                       q_init=np.zeros(6))
+                                                       q_init=q_orig)
         assert success, "Gripper IK failed to converge"
 
     def test_ik_multiple_starts(self):

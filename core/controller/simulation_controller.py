@@ -112,6 +112,20 @@ class SimulationController(BaseController):
         for i, aid in enumerate(self.arm_actuator_ids):
             self.data.ctrl[aid] = q_target[i]
     
+    def send_joint_velocity(self, qvel: np.ndarray) -> None:
+        """
+        发送关节速度命令
+        
+        在位置控制模式下，通过 q_target = q_current + qvel * dt 近似实现速度控制。
+        
+        Args:
+            qvel: 关节速度数组
+        """
+        q_current = self.get_joint_positions()
+        dt = self.model.opt.timestep
+        q_target = q_current + qvel * dt
+        self.send_joint_command(q_target)
+    
     def send_gripper_command(self, position: float) -> None:
         """
         发送夹爪位置命令

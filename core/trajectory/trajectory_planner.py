@@ -126,12 +126,13 @@ class TrajectoryPlanner:
         for i in range(num_steps):
             t = i * dt
             for j in range(len(q_start)):
+                d_acc_j = float(d_acc[j]) if hasattr(d_acc, '__getitem__') else float(d_acc)
                 if dq[j] >= 0:
                     if t <= t_acc:
                         trajectory[i, j] = q_start[j] + 0.5 * max_acc * t ** 2
                         velocities[i, j] = max_acc * t
                     elif t <= t_acc + t_const:
-                        trajectory[i, j] = q_start[j] + d_acc[j] + max_vel * (t - t_acc)
+                        trajectory[i, j] = q_start[j] + d_acc_j + max_vel * (t - t_acc)
                         velocities[i, j] = max_vel
                     else:
                         t_dec_actual = t - t_acc - t_const
@@ -142,7 +143,7 @@ class TrajectoryPlanner:
                         trajectory[i, j] = q_start[j] - 0.5 * max_acc * t ** 2
                         velocities[i, j] = -max_acc * t
                     elif t <= t_acc + t_const:
-                        trajectory[i, j] = q_start[j] - d_acc[j] - max_vel * (t - t_acc)
+                        trajectory[i, j] = q_start[j] - d_acc_j - max_vel * (t - t_acc)
                         velocities[i, j] = -max_vel
                     else:
                         t_dec_actual = t - t_acc - t_const

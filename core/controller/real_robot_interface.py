@@ -85,6 +85,18 @@ class RealRobotInterface(BaseController):
         print("Warning: Reading joint velocities from real robot (placeholder)")
         return np.zeros(self.num_joints)
     
+    def send_joint_velocity(self, qvel):
+        """
+        发送关节速度命令
+        
+        TODO: 实现发送关节速度逻辑
+        
+        Args:
+            qvel: 关节速度数组
+        """
+        print("Warning: Sending joint velocity to real robot (placeholder)")
+        print(f"  qvel: {qvel}")
+    
     def get_ee_pose(self):
         """
         获取真实机械臂末端执行器位姿

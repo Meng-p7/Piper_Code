@@ -90,7 +90,10 @@ class Config:
 
     def get(self, key: str, default: Any = None) -> Any:
         if self._data is not None:
-            return self._data.get(key, default)
+            value = self._data.get(key, default)
+            if isinstance(value, dict):
+                return _ConfigDict(value)
+            return value
         return default
 
     def reload(self) -> None:
