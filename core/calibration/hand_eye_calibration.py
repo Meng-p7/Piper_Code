@@ -87,6 +87,17 @@ class HandEyeCalibration:
             R_target2cam = [p[:3, :3].T for p in self.camera_poses]
             t_target2cam = [-p[:3, :3].T @ p[:3, 3] for p in self.camera_poses]
 
+        # 诊断：打印每对相邻姿态的相对旋转角度
+        print("\n  相对旋转诊断（相邻姿态对）:")
+        for i in range(len(self.robot_poses) - 1):
+            A = np.linalg.inv(self.robot_poses[i]) @ self.robot_poses[i + 1]
+            B = self.camera_poses[i] @ np.linalg.inv(self.camera_poses[i + 1])
+            ra = cv2.Rodrigues(A[:3, :3])[0]
+            rb = cv2.Rodrigues(B[:3, :3])[0]
+            angle_a = np.degrees(np.linalg.norm(ra))
+            angle_b = np.degrees(np.linalg.norm(rb))
+            print(f"    对 {i}→{i+1}:  机械臂旋转 {angle_a:.2f}°  |  相机观测旋转 {angle_b:.2f}°")
+
         cv_method = _METHOD_MAP[self.method]
 
         R_cam2gripper, t_cam2gripper = cv2.calibrateHandEye(
@@ -95,8 +106,15 @@ class HandEyeCalibration:
             method=cv_method,
         )
 
+        # 确保旋转矩阵行列式为 +1（SVD 修正）
+        U, S, Vt = np.linalg.svd(R_cam2gripper)
+        R_fixed = U @ Vt
+        if np.linalg.det(R_fixed) < 0:
+            Vt[-1, :] *= -1
+            R_fixed = U @ Vt
+
         T_result = np.eye(4)
-        T_result[:3, :3] = R_cam2gripper
+        T_result[:3, :3] = R_fixed
         T_result[:3, 3] = t_cam2gripper.flatten()
 
         error = self._compute_error(T_result)

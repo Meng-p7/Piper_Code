@@ -16,8 +16,8 @@ from core.vision import Camera
 MODEL_PATH = os.path.join(PROJECT_ROOT, "models", "calibration_scene.xml")
 OUTPUT_PATH = os.path.join(PROJECT_ROOT, "data", "calibration", "calibration_seeds.npy")
 
-CHECKER_COLS = 8
-CHECKER_ROWS = 6
+CHECKER_COLS = 10
+CHECKER_ROWS = 12
 
 JOINT_LIMITS = np.array([
     [-2.618, 2.618],

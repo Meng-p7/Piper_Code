@@ -139,20 +139,6 @@ world_pos = camera.pixel_to_world(u, v, depth=0.5)
 
 - **DataRecorder** — 以指定频率记录关节状态、末端位姿、图像等数据，支持回放
 
-## 配置系统
-
-所有可调参数集中在 `config/config.yaml`，通过 `utils/config_loader` 单例加载，模块内用 `config.xxx.yyy` 属性访问：
-
-```yaml
-simulation:
-  timestep: 0.002
-robot:
-  joint_names: ["joint1", "joint2", "joint3", "joint4", "joint5", "joint6"]
-  gripper:
-    open_ctrl: 0.035
-    close_ctrl: 0.015
-```
-
 ## 测试
 
 ```bash

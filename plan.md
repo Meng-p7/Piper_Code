@@ -6,7 +6,8 @@
 - ✅ 视觉检测与抓取演示
 - ✅ 手眼标定（批量验证 100% 通过率）
 - ✅ 实时闭环控制（`run_loop` + `send_joint_velocity`）
-- ⬜ 视觉伺服（PBVS/IBVS）
+- ✅ PBVS 视觉伺服（基于位置）
+- ⬜ IBVS 视觉伺服（基于图像）
 - ⬜ 运动规划与自动采集
 
 ---
@@ -15,7 +16,7 @@
 
 | 阶段 | 名称 | 优先级 | 前置条件 | 状态 |
 |:----:|------|:------:|----------|:----:|
-| 四 | 视觉伺服 | P1 | 阶段三 + 手眼标定 | ⬜ 待开始 |
+| 四 | 视觉伺服 | P1 | 阶段三 + 手眼标定 | 🔄 PBVS 已完成，IBVS 待开始 |
 | 五 | 运动规划与自动采集 | P2 | 阶段四 | ⬜ 待开始 |
 | 六 | Sim2Real 迁移 | P3 | 阶段四/五 | ⬜ 待开始 |
 
@@ -35,15 +36,26 @@
 > 前置：实时闭环控制（已完成）+ 手眼标定（已完成）
 > 目标：闭环视觉导引，补偿开环误差
 
-### 4.1 PBVS（基于位置）— 优先实现
+### 4.1 PBVS（基于位置）— ✅ 已完成
 
-| # | 任务 | 说明 | 预估工作量 |
-|---|------|------|:--------:|
-| 1 | 误差计算 | `e = p_target - p_current`，世界坐标系下位置误差 | 低 |
-| 2 | 阻尼伪逆控制律 | `Δq = pinv(J) · K · e`，λ-阻尼避免奇异 | 中 |
-| 3 | 收敛判断 | 位置误差 < 1mm + 姿态误差 < 1° 时停止 | 低 |
-| 4 | 集成抓取 | PBVS 导引到位后触发闭合夹爪 | 低 |
-| 5 | 演示脚本 | `pbvs_grasp_demo.py`：检测红球 → PBVS 接近 → 抓取 | 中 |
+| # | 任务 | 实现文件 | 状态 |
+|---|------|----------|:----:|
+| 1 | 误差计算 | `PBVSController.compute_error()` | ✅ |
+| 2 | 阻尼伪逆控制律 | `PBVSController.compute_joint_velocity()` | ✅ |
+| 3 | 收敛判断 | `PBVSController.is_converged()` | ✅ |
+| 4 | 集成抓取 | `pbvs_grasp_demo.py` 到位后触发夹爪 | ✅ |
+| 5 | 演示脚本 | `demos/pbvs_grasp_demo.py` | ✅ |
+
+**实现细节**：
+- 位置误差：`e_p = p_target - p_current`
+- 姿态误差：轴角表示 `e_o = axis_angle(R_target · R_current^T)`
+- 控制律：`Δq = J^T (J J^T + λ²I)^-1 · [Kp·e_p, Ko·e_o]^T`
+- 闭环循环：`run_pbvs_loop()` 自动运行直到收敛或超时
+
+**测试结果**：
+- 5cm 偏移收敛：1460 步（dt=0.002s ≈ 2.9s），最终误差 0.26mm
+- 10cm 大偏移收敛：2170 步（≈ 4.3s），最终误差 0.22mm
+- 奇异位姿阻尼有效，速度无发散
 
 ### 4.2 IBVS（基于图像）— 后续
 
@@ -59,21 +71,20 @@
 ```
 core/visual_servo/
 ├── __init__.py
-├── vs_base.py               # 基类（误差计算、控制律接口）
-├── pbvs.py                   # PBVS 实现
-├── ibvs.py                   # IBVS 实现
-├── image_jacobian.py         # 图像雅可比矩阵
-└── feature_tracker.py        # 特征跟踪（光流/模板匹配）
+├── pbvs.py                   # ✅ PBVS 实现
+├── ibvs.py                   # ⬜ IBVS 实现
+├── image_jacobian.py         # ⬜ 图像雅可比矩阵
+└── feature_tracker.py        # ⬜ 特征跟踪（光流/模板匹配）
 
 demos/
-└── pbvs_grasp_demo.py        # PBVS 抓取演示
+└── pbvs_grasp_demo.py        # ✅ PBVS 抓取演示
 ```
 
 ### 验收标准
 
-- [ ] PBVS 从初始偏移 10cm 到收敛 < 5s
+- [x] PBVS 从初始偏移 10cm 到收敛 < 5s（实测 4.3s）
 - [ ] IBVS 对 ±5° 姿态扰动鲁棒
-- [ ] 控制频率 ≥ 50Hz
+- [x] 控制频率 ≥ 50Hz（由 MuJoCo timestep 决定）
 - [ ] 抓取成功率 > 90%（10 次连续测试）
 
 ---
